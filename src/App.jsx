@@ -8,6 +8,24 @@ import Signup from "./components/Signup";
 import AdminApprove from "./components/AdminApprove";
 
 export default function App() {
+  // Show clear message when required Vite env vars are not provided
+  const VITE_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+  const VITE_SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!VITE_SUPABASE_URL || !VITE_SUPABASE_ANON_KEY) {
+    return (
+      <div style={{padding:40,background:'#111',color:'#fff',minHeight:'100vh'}}>
+        <h1 style={{color:'#32cd32'}}>Frontend missing environment variables</h1>
+        <p>
+          The frontend requires <strong>VITE_SUPABASE_URL</strong> and <strong>VITE_SUPABASE_ANON_KEY</strong> to be set in the deployment environment.
+        </p>
+        <p>
+          On Render, add these under the service's Environment section and redeploy.
+        </p>
+      </div>
+    );
+  }
+
   const [showSplash, setShowSplash] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [role, setRole] = useState(null);
