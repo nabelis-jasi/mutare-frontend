@@ -8,23 +8,10 @@ import Signup from "./components/Signup";
 import AdminApprove from "./components/AdminApprove";
 
 export default function App() {
-  // Show clear message when required Vite env vars are not provided
+  // Vite env vars (optional) — show a non-blocking warning if missing
   const VITE_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
   const VITE_SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-  if (!VITE_SUPABASE_URL || !VITE_SUPABASE_ANON_KEY) {
-    return (
-      <div style={{padding:40,background:'#111',color:'#fff',minHeight:'100vh'}}>
-        <h1 style={{color:'#32cd32'}}>Frontend missing environment variables</h1>
-        <p>
-          The frontend requires <strong>VITE_SUPABASE_URL</strong> and <strong>VITE_SUPABASE_ANON_KEY</strong> to be set in the deployment environment.
-        </p>
-        <p>
-          On Render, add these under the service's Environment section and redeploy.
-        </p>
-      </div>
-    );
-  }
+  const missingEnv = !VITE_SUPABASE_URL || !VITE_SUPABASE_ANON_KEY;
 
   const [showSplash, setShowSplash] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -86,18 +73,13 @@ export default function App() {
     });
   }, []);
 
-  // 1️⃣ Splash screen
-  if (showSplash) return <Splash onContinue={handleSplashContinue} />;
-
-  // 2️⃣ Request access screen
-  if (showRequestAccess) return <RequestAccess onBack={() => setShowRequestAccess(false)} />;
-
-  // 3️⃣ Signup screen
-  if (showSignup) return <Signup onSignupComplete={() => setShowSignup(false)} />;
-
-  // 4️⃣ Login screen
-  if (!isAuthenticated) {
-    return (
+  // Decide inner content based on state, then render wrapper with optional banner
+  let inner = null;
+  if (showSplash) inner = <Splash onContinue={handleSplashContinue} />;
+  else if (showRequestAccess) inner = <RequestAccess onBack={() => setShowRequestAccess(false)} />;
+  else if (showSignup) inner = <Signup onSignupComplete={() => setShowSignup(false)} />;
+  else if (!isAuthenticated)
+    inner = (
       <div>
         <Login onLogin={handleLogin} />
         <div style={{ textAlign: "center", marginTop: "1rem" }}>
@@ -106,24 +88,31 @@ export default function App() {
         </div>
       </div>
     );
-  }
+  else if (role === "admin") inner = <AdminApprove />;
+  else
+    inner = (
+      <div className={`app-container role-${role}`}>
+        <header className="app-header">
+          <h1>WASTEWATER GIS</h1>
+          <div className="header-controls">
+            <span className="current-role">Role: {role ? role.replace("-", " ") : "unknown"}</span>
+            <button onClick={handleLogout} className="logout-button">Logout</button>
+          </div>
+        </header>
+        <main className="app-main">
+          <Dashboard role={role} userId={userId} />
+        </main>
+      </div>
+    );
 
-  // 5️⃣ Admin dashboard
-  if (role === "admin") return <AdminApprove />;
-
-  // 6️⃣ Role-based dashboard
   return (
-    <div className={`app-container role-${role}`}>
-      <header className="app-header">
-        <h1>WASTEWATER GIS</h1>
-        <div className="header-controls">
-          <span className="current-role">Role: {role.replace("-", " ")}</span>
-          <button onClick={handleLogout} className="logout-button">Logout</button>
+    <div>
+      {missingEnv && (
+        <div style={{ background: "#331", color: "#fff", padding: "0.75rem 1rem", textAlign: "center" }}>
+          Warning: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY not set — functionality that talks to Supabase will be disabled. Set these in your dev `.env` or in Render.
         </div>
-      </header>
-      <main className="app-main">
-        <Dashboard role={role} userId={userId} />
-      </main>
+      )}
+      {inner}
     </div>
   );
 }
