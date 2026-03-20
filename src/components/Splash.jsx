@@ -1,52 +1,68 @@
-import { useState } from "react";
+import React, { useEffect } from 'react';
 
-import React from "react";
+export default function Splash({ onComplete }) {
+  useEffect(() => {
+    console.log("🔵 Splash mounted at:", new Date().toLocaleTimeString());
+    
+    // Auto-redirect after 10 seconds
+    const timer = setTimeout(() => {
+      console.log("🟢 10 seconds elapsed - calling onComplete at:", new Date().toLocaleTimeString());
+      onComplete();
+    }, 10000);
 
-// Path to the background image; the PNG placed in public root will be shown on the splash page.
-// make sure the file name matches exactly.
-// Use encoded URI to handle spaces in file name. if you rename the file, adjust accordingly.
-const bgImagePath = "/wastewater%20image.png"; // using the PNG from public folder
+    // Cleanup timer if component unmounts
+    return () => {
+      console.log("🔴 Splash unmounted - clearing timer");
+      clearTimeout(timer);
+    };
+  }, [onComplete]);
 
-export default function Splash({ onContinue }) {
-  // typing text state
-  // new header using text from user (start of splash page)
-  const titleText = "Welcome to the Spatial Wastewater Intelligence Platform";
-  const bodyText =
-    "This project provides field operators, collectors, and developers with an interactive map and management tools for wastewater infrastructure. Navigate the dashboard to view, edit, and synchronize data efficiently.";
-
-  // remove typing animation; show full text immediately
-  const [typedTitle, setTypedTitle] = React.useState(titleText);
-  const [typedBody, setTypedBody] = React.useState(bodyText);
-
-  React.useEffect(() => {
-    if (typedTitle === titleText) {
-      let idx = 0;
-      const interval2 = setInterval(() => {
-        setTypedBody((prev) => prev + bodyText.charAt(idx));
-        idx += 1;
-        if (idx > bodyText.length) {
-          clearInterval(interval2);
-        }
-      }, 30);
-      return () => clearInterval(interval2);
-    }
-  }, [typedTitle]);
+  // Manual click handler for testing
+  const handleClick = () => {
+    console.log("👆 Manual click - calling onComplete");
+    onComplete();
+  };
 
   return (
-    <div className="splash-container">
-      <div
-        className="splash-bg"
-        style={{ backgroundImage: `url(${bgImagePath})` }}
-      >
-        <div className="splash-overlay">
-          <h1>{typedTitle}</h1>
-          <p>{typedBody}</p>
-        </div>
+    <div 
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        backgroundColor: "#ffffff",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 9999,
+        cursor: "pointer",
+      }}
+      onClick={handleClick}
+    >
+      <img 
+        src="/src/assets/Untitled design_20260319_161147_0000.png" 
+        alt="Logo" 
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+        }}
+      />
+      <div style={{
+        position: "absolute",
+        bottom: "40px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        color: "#666",
+        fontSize: "1rem",
+        backgroundColor: "rgba(255,255,255,0.8)",
+        padding: "8px 16px",
+        borderRadius: "20px",
+        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+      }}>
+        Loading... (10s) - Click to skip
       </div>
-
-      <button className="splash-button" onClick={onContinue}>
-        Enter App
-      </button>
     </div>
   );
 }

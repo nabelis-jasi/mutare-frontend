@@ -1,69 +1,103 @@
+import React, { useState, useEffect } from "react";
 import MapView from "./MapView";
 import ManholeList from "./ManholeList";
 import PipeList from "./PipelineList";
+import { supabase } from "../supabaseClient";
+import "../style/Dashboard.css";
 
 export default function Dashboard({ role, userId }) {
-  // Temporary sample data (replace with API or DB later)
-  const manholes = [
-    {
-      id: 1,
-      status: "Needs Maintenance",
-      plus_code: "X123",
-      geom: { coordinates: [32.67, -18.97] },
-      flagged: false,
-    },
-  ];
+  const [manholes, setManholes] = useState([]);
+  const [pipes, setPipes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const pipes = [
-    {
-      id: 1,
-      status: "Good",
-      plus_code: "Y456",
-      material: "PVC",
-      condition: "Excellent",
-      geom: {
-        coordinates: [
-          [32.67, -18.97],
-          [32.68, -18.96],
-        ],
-      },
-      flagged: false,
-    },
-  ];
+  // Fetch data based on role
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Fetch manholes from waste_water_manhole table
+        const { data: manholesData, error: manholesError } = await supabase
+          .from("waste_water_manhole")
+          .select("*");
+        
+        if (manholesError) {
+          console.error("Error fetching manholes:", manholesError);
+          setError(`Manholes error: ${manholesError.message}`);
+        } else {
+          setManholes(manholesData || []);
+        }
 
-  // Role messages and permissions
+        // Fetch pipes from waste_water_pipeline table
+        const { data: pipesData, error: pipesError } = await supabase
+          .from("waste_water_pipeline")
+          .select("*");
+        
+        if (pipesError) {
+          console.error("Error fetching pipes:", pipesError);
+          setError(`Pipes error: ${pipesError.message}`);
+        } else {
+          setPipes(pipesData || []);
+        }
+        
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (userId) {
+      fetchData();
+    }
+  }, [role, userId]);
+
+  // Role-specific messages
   const roleMessages = {
-    engineer: "Full access: edit, upload, delete, and save flags.",
-    "field-operator": "You can edit status and maintenance records.",
-    "field-collector": "You can collect data and flag points or lines only.",
+    "field-collector": "📱 You can collect data and flag points or lines",
+    "field-operator": "🔧 You can update status and maintenance records",
+    "engineer": "📊 Full access: edit, upload, delete, and manage flags",
+    "admin": "👑 Admin access: approve users and manage all data",
+    "pending": "⏳ Your account is pending approval"
   };
 
-  // Role-based action buttons
-  const renderActions = () => {
+  // Role-specific actions
+  const renderRoleActions = () => {
     switch (role) {
       case "field-collector":
         return (
           <div className="role-actions">
-            <button onClick={() => alert("Collecting data...")}>Collect Data</button>
-            <button onClick={() => alert("Syncing collected data...")}>Sync Data</button>
-            <button onClick={() => alert("Flagging selected point/line")}>Flag Point/Line</button>
+            <button className="action-btn collect-btn">📍 Collect Data</button>
+            <button className="action-btn flag-btn">🚩 Flag Issue</button>
+            <button className="action-btn sync-btn">🔄 Sync Data</button>
           </div>
         );
       case "field-operator":
         return (
           <div className="role-actions">
-            <button onClick={() => alert("Updating maintenance status")}>Update Status</button>
-            <button onClick={() => alert("Syncing updates...")}>Sync Updates</button>
+            <button className="action-btn status-btn">📝 Update Status</button>
+            <button className="action-btn maintain-btn">🔧 Maintenance</button>
+            <button className="action-btn sync-btn">🔄 Sync Updates</button>
           </div>
         );
       case "engineer":
         return (
           <div className="role-actions">
-            <button onClick={() => alert("Editing GIS data...")}>Edit Records</button>
-            <button onClick={() => alert("Uploading shapefile/CSV...")}>Upload Shapefile/CSV</button>
-            <button onClick={() => alert("Deleting selected features")}>Delete Features</button>
-            <button onClick={() => alert("Syncing GIS database...")}>Sync Data</button>
-            <button onClick={() => alert("Saving flagged points/lines")}>Save Flags</button>
+            <button className="action-btn edit-btn">✏️ Edit Records</button>
+            <button className="action-btn upload-btn">📤 Upload Shapefile</button>
+            <button className="action-btn delete-btn">🗑️ Delete Features</button>
+            <button className="action-btn flag-btn">🏁 Save Flags</button>
+          </div>
+        );
+      case "admin":
+        return (
+          <div className="role-actions">
+            <button className="action-btn approve-btn">✅ Approve Users</button>
+            <button className="action-btn manage-btn">👥 Manage Roles</button>
+            <button className="action-btn config-btn">⚙️ System Config</button>
           </div>
         );
       default:
@@ -71,43 +105,50 @@ export default function Dashboard({ role, userId }) {
     }
   };
 
-  const roles = [
-    { name: "Field Operator", key: "field-operator" },
-    { name: "Field Collector", key: "field-collector" },
-    { name: "Engineer", key: "engineer" },
-  ];
+  if (loading) {
+    return (
+      <div className="dashboard-container">
+        <div className="loading-spinner">Loading dashboard...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-container">
+        <div className="error-message">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-container">
       <div className={`dashboard-layout role-${role}`}>
-        {/* Left half: Map */}
+        {/* Left: Map */}
         <section className="map-section">
           <MapView manholes={manholes} pipes={pipes} />
         </section>
 
-        {/* Right half: Role info + actions */}
+        {/* Right: Info Panel */}
         <section className="info-section">
-          <div className="role-tabs">
-            {roles.map((r) => (
-              <div key={r.key} className={`role-tab ${r.key === role ? "active" : ""}`}>
-                <span className="role-label">{r.name}</span>
-              </div>
-            ))}
+          <div className="role-header">
+            <h2>{role ? role.replace("-", " ").toUpperCase() : "DASHBOARD"}</h2>
+            <p className="role-message">{roleMessages[role] || "Welcome to the dashboard"}</p>
           </div>
 
-          <div className="role-content">
-            <h3>Current Role: {role.replace("-", " ")}</h3>
-            <p>{roleMessages[role]}</p>
+          {/* Role-specific actions */}
+          {renderRoleActions()}
 
-            {/* Role-specific buttons/actions */}
-            {renderActions()}
+          {/* Data lists */}
+          <div className="lists-section">
+            <div className="list-header">
+              <h3>Waste Water Manholes ({manholes.length})</h3>
+              <ManholeList manholes={manholes} role={role} />
+            </div>
 
-            <div className="lists-section">
-              <h4>Manholes</h4>
-              <ManholeList manholes={manholes} />
-
-              <h4>Pipes</h4>
-              <PipeList pipes={pipes} />
+            <div className="list-header">
+              <h3>Waste Water Pipelines ({pipes.length})</h3>
+              <PipeList pipes={pipes} role={role} />
             </div>
           </div>
         </section>
