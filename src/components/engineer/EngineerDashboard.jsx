@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import MapView from '../MapView';
+import MapView from './MapView';  // MapView now lives alongside dashboard components
 import DataEditor from './DataEditor';
 import ShapefileUploader from './ShapefileUploader';
 import DataSync from './DataSync';
