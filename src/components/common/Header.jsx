@@ -26,7 +26,7 @@ export default function Header({ role, userId, onLogout }) {
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
         <img 
-          src="/src/assets/Untitled design_20260319_161147_0000.png" 
+          src="/src/assets/logo.png" 
           alt="Logo" 
           style={{ height: "40px", width: "40px", objectFit: "contain" }}
         />
