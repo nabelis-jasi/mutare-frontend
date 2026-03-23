@@ -30,7 +30,7 @@ export default function RoleSelection({ onSelectRole }) {
     <div style={styles.container}>
       {/* Background logo */}
       <img 
-        src="/src/assets/Untitled design_20260319_161147_0000.png" 
+        src="/src/assets/logo.png" 
         alt="" 
         style={styles.backgroundLogo}
       />
