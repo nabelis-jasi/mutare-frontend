@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import NavigationTool from './NavigationTool';
+import NavigationTool from '../NavigationTool';
 
 /**
  * MapView.jsx  — full replacement
