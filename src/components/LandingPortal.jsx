@@ -190,7 +190,7 @@ export default function LandingPortal({ selectedRole, setActivePortal, onBackToR
     <div style={styles.landingWrapper}>
       {/* Full screen faint background logo */}
       <img 
-        src="/src/assets/Untitled design_20260319_161147_0000.png" 
+        src="/src/assets/logo.png" 
         alt="" 
         style={styles.backgroundLogo}
       />
