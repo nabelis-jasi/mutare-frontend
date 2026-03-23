@@ -75,7 +75,7 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#e8f5e9",
+    backgroundColor: "#4ff24f",
     overflow: "hidden",
     margin: 0,
     padding: 0,
