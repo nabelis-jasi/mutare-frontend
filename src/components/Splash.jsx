@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import logo from '../assets/logo.png'; // adjust path if Splash.jsx is not in src/components
 
 export default function Splash({ onComplete }) {
   useEffect(() => {
@@ -41,7 +42,7 @@ export default function Splash({ onComplete }) {
       onClick={handleClick}
     >
       <img 
-        src="/src/assets/Untitled design_20260319_161147_0000.png" 
+        src={logo}   // ✅ uses imported image
         alt="Logo" 
         style={{
           width: "100%",
@@ -61,7 +62,7 @@ export default function Splash({ onComplete }) {
         borderRadius: "20px",
         boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
       }}>
-        Loading... (10s) - Click to skip
+        Loading...
       </div>
     </div>
   );
