@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
+import backgroundLogo from "../assets/logo.png"; // adjust path if needed
 
 export default function RequestAccess({ selectedRole, onBack }) {
   const [email, setEmail] = useState("");
@@ -175,7 +176,7 @@ export default function RequestAccess({ selectedRole, onBack }) {
   return (
     <div style={styles.wrapper}>
       <img 
-        src="/src/assets/Untitled design_20260319_161147_0000.png" 
+        src={backgroundLogo} 
         alt="" 
         style={styles.backgroundLogo}
       />
