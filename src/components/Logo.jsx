@@ -1,5 +1,5 @@
 import React from 'react';
-import splashImage from '../assets/Untitled design_20260319_161147_0000.png';
+import splashImage from '../assets/logo.png';
 
 export default function Logo({ size = 'medium' }) {
   const sizes = {
