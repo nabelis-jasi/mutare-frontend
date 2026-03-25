@@ -4,7 +4,7 @@ import DataCollection from './DataCollection';
 import FlagFeature from './FlagFeature';
 import SyncData from './SyncData';
 import CollectorHome from './CollectorHome';
-import './collector.css';
+import './Collector.css';
 
 export default function CollectorDashboard({ manholes, pipes, userId, role, onDataRefresh }) {
   const [activePanel, setActivePanel] = useState(null);
