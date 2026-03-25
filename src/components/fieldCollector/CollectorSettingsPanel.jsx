@@ -39,7 +39,7 @@ export default function CollectorSettingsPanel({ onClose }) {
         <div className="wd-info-row">
           <span className="ir-k">Build</span>
           <span className="ir-v" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-            WasteGIS-2025-prod
+            WWGIS-2025-prod
           </span>
         </div>
         <div className="wd-info-row">
