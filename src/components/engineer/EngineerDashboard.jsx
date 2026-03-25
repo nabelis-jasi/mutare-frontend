@@ -1,215 +1,195 @@
 import React, { useState, useRef } from 'react';
 import MapView from '../MapView';
-import DataCollection from './DataCollection';
-import FlagFeature from './FlagFeature';
-import SyncData from './SyncData';
-import CollectorHome from './CollectorHome';
+import DataEditor from './DataEditor';
+import ShapefileUploader from './ShapefileUploader';
+import DataSync from './DataSync';
+import FlagManager from './FlagManager';
+import NavigationTool from './NavigationTool';
+import HomePanel from './HomePanel';
+import ProfilePanel from './ProfilePanel';
+import SettingsPanel from './SettingsPanel';
+import './Dashboard.css';
 
-// 🔥 Reuse same panels as Engineer
-import ProfilePanel from '../engineer/CollectorProfilePanel';
-import SettingsPanel from '../engineer/CollectorSettingsPanel';
+export default function EngineerDashboard({ manholes, pipes, userId, role, onDataRefresh, userProfile }) {
+  const [activePanel,   setActivePanel]   = useState(null);
+  const [selectedFeature, setFeature]     = useState(null);
+  const [mapInstance,   setMapInstance]   = useState(null);
 
-import './Collector.css';
+  // ── Navigation pick-mode bridge ────────────────────────────────────────
+  // When NavigationTool wants the user to click the map, it calls
+  // onPickModeChange(true, wpIndex). We set navPickMode which MapView
+  // reads to change cursor + fire onNavMapClick on every map click.
+  const [navPickMode,   setNavPickMode]   = useState(false);
+  const navToolRef = useRef(null); // ref to call NavigationTool.handleMapClick
 
-export default function CollectorDashboard({
-  manholes,
-  pipes,
-  userId,
-  role,
-  onDataRefresh,
-  onLogout,
-  userProfile
-}) {
-  const [activePanel, setActivePanel] = useState(null);
-  const [mapInstance, setMapInstance] = useState(null);
-
-  // ── PICK MODE (same concept as Engineer navPickMode) ──
-  const [pickMode, setPickMode] = useState(false);
-  const pickCallbackRef = useRef(null);
-
-  const startMapPick = (cb) => {
-    pickCallbackRef.current = cb;
-    setPickMode(true);
-    setActivePanel(null);
+  const handlePickModeChange = (active, idx) => {
+    setNavPickMode(active);
   };
 
-  const handleMapClick = (lat, lng) => {
-    if (pickCallbackRef.current) {
-      pickCallbackRef.current(lat, lng);
-      pickCallbackRef.current = null;
-      setPickMode(false);
+  const handleNavMapClick = async (lat, lng) => {
+    // Delegate to NavigationTool's static handler
+    if (NavigationTool.handleMapClick) {
+      await NavigationTool.handleMapClick(lat, lng);
     }
+    setNavPickMode(false);
   };
 
-  const cancelMapPick = () => {
-    pickCallbackRef.current = null;
-    setPickMode(false);
-  };
-
-  const handleDataRefreshed = () => {
-    onDataRefresh();
+  const handleFeatureClick = (feature) => {
+    setFeature(feature);
+    setActivePanel('editor');
   };
 
   const toggle = (id) => setActivePanel(prev => prev === id ? null : id);
 
+  // ── Tool rail definitions ──────────────────────────────────────────────
   const tools = [
-    { id: 'home',    icon: '🏠', label: 'Home',    color: '#4aad4a' },
-    { id: 'collect', icon: '📍', label: 'Collect', color: '#8fdc00' },
-    { id: 'flag',    icon: '🚩', label: 'Flag',    color: '#f59e0b' },
-    { id: 'sync',    icon: '🔄', label: 'Sync',    color: '#22d3ee' },
+    { id: 'home',     icon: '🏠', label: 'Home',     color: '#4aad4a', desc: 'Overview & stats'    },
+    { id: 'nav',      icon: '🧭', label: 'Navigate', color: '#22d3ee', desc: 'GPS routing'          },
+    { id: 'editor',   icon: '✏️', label: 'Edit',     color: '#8fdc00', desc: 'Edit manhole/pipeline'},
+    { id: 'uploader', icon: '📤', label: 'Upload',   color: '#4aad4a', desc: 'Import shapefile'     },
+    { id: 'sync',     icon: '🔄', label: 'Sync',     color: '#22d3ee', desc: 'Push / pull data'     },
+    { id: 'flags',    icon: '🚩', label: 'Flags',    color: '#f59e0b', desc: 'Review issues'        },
   ];
 
   return (
     <div className="wd-root">
 
-      {/* ── TOP BAR (IDENTICAL PATTERN TO ENGINEER) ── */}
+      {/* ── TOP BAR ───────────────────────────────────────────────────── */}
       <header className="wd-topbar">
         <div className="wd-brand">
-          <div className="wd-brand-logo">🦺</div>
+          <div className="wd-brand-logo">🪣</div>
           <div>
             <div className="wd-brand-name">WWGIS</div>
-            <div className="wd-brand-tagline">Field Collector · Wastewater Network</div>
+            <div className="wd-brand-tagline">Wastewater Network</div>
           </div>
         </div>
 
         <div className="wd-topbar-sep" />
 
         <div className="wd-chips">
-          <div className="wd-chip">
-            <span className="dot dot-green" />{manholes?.length ?? 0} Manholes
-          </div>
-          <div className="wd-chip">
-            <span className="dot dot-lime" />{pipes?.length ?? 0} Pipelines
-          </div>
-
-          {pickMode && (
-            <div className="wd-chip" style={{
-              borderColor: 'rgba(143,220,0,0.5)',
-              color: '#8fdc00'
-            }}>
-              <span className="dot dot-lime" /> Pick Mode Active
+          <div className="wd-chip"><span className="dot dot-green" />{manholes?.length ?? 0} Manholes</div>
+          <div className="wd-chip"><span className="dot dot-lime"  />{pipes?.length    ?? 0} Pipelines</div>
+          <div className="wd-chip"><span className="dot dot-amber" />Live</div>
+          {navPickMode && (
+            <div className="wd-chip" style={{ borderColor: 'rgba(143,220,0,0.5)', color: '#8fdc00', animation: 'pulse-dot 0.8s infinite' }}>
+              <span className="dot dot-lime" style={{ animationDuration: '0.5s' }} /> Pick Mode Active
             </div>
           )}
         </div>
 
-        {/* 🔥 SAME AS ENGINEER */}
         <div className="wd-topbar-actions">
-          <button
-            className={`wd-icon-btn${activePanel === 'profile' ? ' active' : ''}`}
-            onClick={() => toggle('profile')}
-            title="Profile"
-          >
-            👤
-          </button>
-
-          <button
-            className={`wd-icon-btn${activePanel === 'settings' ? ' active' : ''}`}
-            onClick={() => toggle('settings')}
-            title="Settings"
-          >
-            ⚙️
-          </button>
-
-          {/* 🔥 LOGOUT BUTTON */}
-          <button
-            className="wd-icon-btn"
-            onClick={onLogout}
-            title="Logout"
-          >
-            ⎋
-          </button>
-
-          <div className="wd-role-pill">
-            {role ?? 'field-collector'}
-          </div>
+          <button className={`wd-icon-btn${activePanel === 'profile'  ? ' active' : ''}`}
+            onClick={() => toggle('profile')}  title="User Profile">👤</button>
+          <button className={`wd-icon-btn${activePanel === 'settings' ? ' active' : ''}`}
+            onClick={() => toggle('settings')} title="Settings">⚙️</button>
+          <div className="wd-role-pill">{role ?? 'Engineer'}</div>
         </div>
       </header>
 
-      {/* ── MAP ── */}
+      {/* ── MAP ───────────────────────────────────────────────────────── */}
       <div className="wd-map-wrap">
         <MapView
           manholes={manholes}
           pipes={pipes}
           role={role}
           userId={userId}
+          onFeatureClick={handleFeatureClick}
           onMapReady={setMapInstance}
-          navPickMode={pickMode}
-          onNavMapClick={handleMapClick}
+          navPickMode={navPickMode}
+          onNavMapClick={handleNavMapClick}
         />
       </div>
 
-      {/* ── LEFT TOOL RAIL (LIKE ENGINEER) ── */}
+      {/* ── LEFT RAIL — with labels for new users ─────────────────────── */}
       <nav className="wd-rail">
-        {tools.map((t) => (
-          <button
-            key={t.id}
-            className={`wd-rail-btn${activePanel === t.id ? ' active' : ''}`}
-            style={{ '--rail-color': t.color }}
-            onClick={() => toggle(t.id)}
-          >
-            <span>{t.icon}</span>
-            <span>{t.label}</span>
-          </button>
+        {tools.map((t, i) => (
+          <React.Fragment key={t.id}>
+            {i === 2 && <div className="wd-rail-sep" />}
+            <button
+              className={`wd-rail-btn${activePanel === t.id ? ' active' : ''}`}
+              style={{ '--rail-color': t.color }}
+              onClick={() => toggle(t.id)}
+              title={`${t.label} — ${t.desc}`}
+            >
+              {/* Icon */}
+              <span style={{ fontSize: 18, lineHeight: 1, display: 'block' }}>{t.icon}</span>
+              {/* Label — always visible for new users */}
+              <span style={{
+                display:        'block',
+                fontFamily:     'var(--font-display)',
+                fontSize:       8,
+                fontWeight:     700,
+                letterSpacing:  '0.08em',
+                textTransform:  'uppercase',
+                color:          activePanel === t.id ? 'var(--text-pri)' : 'var(--text-dim)',
+                marginTop:      2,
+                lineHeight:     1,
+                textAlign:      'center',
+              }}>
+                {t.label}
+              </span>
+            </button>
+          </React.Fragment>
         ))}
       </nav>
 
-      {/* ── PANELS (ENGINEER STYLE) ── */}
+      {/* ── PANELS ────────────────────────────────────────────────────── */}
 
       {activePanel === 'home' && (
-        <CollectorHome
-          manholes={manholes}
-          pipes={pipes}
+        <HomePanel
+          manholes={manholes} pipes={pipes}
           onClose={() => setActivePanel(null)}
           onNavigate={toggle}
         />
       )}
 
-      {activePanel === 'collect' && (
-        <DataCollection
-          userId={userId}
+      {activePanel === 'nav' && (
+        <NavigationTool
           map={mapInstance}
-          onDataCollected={handleDataRefreshed}
-          onClose={() => setActivePanel(null)}
-          onStartMapPick={startMapPick}
-          onCancelMapPick={cancelMapPick}
+          onClose={() => { setActivePanel(null); setNavPickMode(false); }}
+          onPickModeChange={handlePickModeChange}
         />
       )}
 
-      {activePanel === 'flag' && (
-        <FlagFeature
-          userId={userId}
-          manholes={manholes}
-          pipes={pipes}
-          map={mapInstance}
-          onFeatureFlagged={handleDataRefreshed}
+      {activePanel === 'editor' && (
+        <DataEditor
+          feature={selectedFeature}
+          onSave={() => { setActivePanel(null); onDataRefresh(); }}
+          onCancel={() => setActivePanel(null)}
+        />
+      )}
+
+      {activePanel === 'uploader' && (
+        <ShapefileUploader
+          onUploadComplete={onDataRefresh}
           onClose={() => setActivePanel(null)}
-          onStartMapPick={startMapPick}
         />
       )}
 
       {activePanel === 'sync' && (
-        <SyncData
+        <DataSync
           userId={userId}
-          onSyncComplete={handleDataRefreshed}
+          onSyncComplete={onDataRefresh}
           onClose={() => setActivePanel(null)}
         />
       )}
 
-      {/* 🔥 SAME PANELS AS ENGINEER */}
+      {activePanel === 'flags' && (
+        <FlagManager
+          onFlagManaged={onDataRefresh}
+          onClose={() => setActivePanel(null)}
+        />
+      )}
+
       {activePanel === 'profile' && (
         <ProfilePanel
-          userId={userId}
-          role={role}
-          userProfile={userProfile}
-          onLogout={onLogout}
+          userId={userId} role={role} userProfile={userProfile}
           onClose={() => setActivePanel(null)}
         />
       )}
 
       {activePanel === 'settings' && (
-        <SettingsPanel
-          onClose={() => setActivePanel(null)}
-        />
+        <SettingsPanel onClose={() => setActivePanel(null)} />
       )}
     </div>
   );
