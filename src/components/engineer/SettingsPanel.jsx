@@ -93,7 +93,7 @@ export default function SettingsPanel({ onClose }) {
         {/* App info */}
         <div className="wd-section" style={{ marginTop: 20 }}>About</div>
         <div className="wd-info-row"><span className="ir-k">Version</span><span className="ir-v">2.1.0</span></div>
-        <div className="wd-info-row"><span className="ir-k">Build</span><span className="ir-v" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>WasteGIS-2025-prod</span></div>
+        <div className="wd-info-row"><span className="ir-k">Build</span><span className="ir-v" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>WWGIS-2025-prod</span></div>
         <div className="wd-info-row"><span className="ir-k">Basemap</span><span className="ir-v">OpenStreetMap + Esri</span></div>
         <div className="wd-info-row"><span className="ir-k">Routing</span><span className="ir-v">OSRM Public API</span></div>
 
