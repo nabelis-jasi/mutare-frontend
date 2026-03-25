@@ -1,41 +1,62 @@
-import React, { useState } from 'react';
-import './Dashboard.css';
+import React from 'react';
 
-export default function OperatorSettingsProfile({ onClose }) {
-  const [darkMode, setDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState(true);
-
-  const toggleDarkMode = () => setDarkMode(prev => !prev);
-  const toggleNotifications = () => setNotifications(prev => !prev);
-
+export default function OperatorSettingsPanel({ onClose }) {
   return (
-    <div className="wd-panel">
+    <div
+      className="wd-panel"
+      style={{
+        '--panel-icon-bg': 'rgba(74,173,74,0.08)',
+        '--panel-icon-border': 'rgba(74,173,74,0.25)',
+      }}
+    >
+      {/* HEADER */}
       <div className="wd-panel-header">
-        <div className="wd-panel-icon" style={{ '--panel-icon-bg': 'var(--glow-lime)' }}>
-          ⚙️
-        </div>
+        <div className="wd-panel-icon">⚙️</div>
         <div>
-          <div className="wd-panel-title">Settings</div>
-          <div className="wd-panel-sub">Preferences & App Config</div>
+          <div className="wd-panel-title">Operator Settings</div>
+          <div className="wd-panel-sub">App configuration · Display · GPS</div>
         </div>
-        <button className="wd-panel-close" onClick={onClose}>✕</button>
+        <button className="wd-panel-close" onClick={onClose}>
+          ×
+        </button>
       </div>
+
+      {/* BODY */}
       <div className="wd-panel-body">
-        <div className="wd-toggle-row">
-          <div>
-            <div className="wd-toggle-label">Dark Mode</div>
-            <div className="wd-toggle-sub">System theme preference</div>
-          </div>
-          <div className={`wd-toggle ${darkMode ? 'on' : ''}`} onClick={toggleDarkMode} />
+        {/* Optional saved message */}
+        <div className="wd-status ok" style={{ marginBottom: 12, visibility: 'hidden' }}>
+          ✓ Settings saved
         </div>
-        <div className="wd-toggle-row">
-          <div>
-            <div className="wd-toggle-label">Notifications</div>
-            <div className="wd-toggle-sub">Receive alerts for network issues</div>
-          </div>
-          <div className={`wd-toggle ${notifications ? 'on' : ''}`} onClick={toggleNotifications} />
+
+        {/* App info */}
+        <div className="wd-section" style={{ marginTop: 0 }}>
+          About
         </div>
-        {/* Additional settings can be added here */}
+        <div className="wd-info-row">
+          <span className="ir-k">Version</span>
+          <span className="ir-v">2.1.0</span>
+        </div>
+        <div className="wd-info-row">
+          <span className="ir-k">Build</span>
+          <span className="ir-v" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+            WWGIS-2025-prod
+          </span>
+        </div>
+        <div className="wd-info-row">
+          <span className="ir-k">Basemap</span>
+          <span className="ir-v">OpenStreetMap + Esri</span>
+        </div>
+        <div className="wd-info-row">
+          <span className="ir-k">Routing</span>
+          <span className="ir-v">OSRM Public API</span>
+        </div>
+
+        {/* Footer buttons */}
+        <div className="wd-btn-row" style={{ marginTop: 20 }}>
+          <button className="wd-btn wd-btn-ghost" onClick={onClose}>
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );
