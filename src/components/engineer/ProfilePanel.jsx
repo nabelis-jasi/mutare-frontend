@@ -5,7 +5,7 @@ export default function ProfilePanel({ userId, role, userProfile, onClose }) {
   const [editing, setEditing]     = useState(false);
   const [name,    setName]        = useState(userProfile?.full_name   || 'Engineer');
   const [phone,   setPhone]       = useState(userProfile?.phone       || '');
-  const [dept,    setDept]        = useState(userProfile?.department  || 'Wastewater Engineering');
+  const [dept,    setDept]        = useState(userProfile?.department  || 'Engineering');
   const [saving,  setSaving]      = useState(false);
   const [saved,   setSaved]       = useState(false);
 
