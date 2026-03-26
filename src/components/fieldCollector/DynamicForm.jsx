@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
-import { saveOffline } from '../shared/OfflineStorage'; // we'll define
+import { saveOffline } from './OfflineStorage'; // we'll define
 
 export default function DynamicForm({ form, onSubmitted }) {
   const [fields, setFields] = useState([]);
