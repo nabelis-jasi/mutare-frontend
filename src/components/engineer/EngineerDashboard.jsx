@@ -8,28 +8,26 @@ import NavigationTool from './NavigationTool';
 import HomePanel from './HomePanel';
 import ProfilePanel from './ProfilePanel';
 import SettingsPanel from './SettingsPanel';
-import './Dashboard.css';
 import FormBuilder from './FormBuilder';
-import ReviewForm from './ReviewForm';
+import FormList from './FormList';
+import SubmissionsList from './SubmissionsList';
+import './Dashboard.css';
 
 export default function EngineerDashboard({ manholes, pipes, userId, role, onDataRefresh, userProfile }) {
-  const [activePanel,   setActivePanel]   = useState(null);
-  const [selectedFeature, setFeature]     = useState(null);
-  const [mapInstance,   setMapInstance]   = useState(null);
+  const [activePanel, setActivePanel] = useState(null);
+  const [selectedFeature, setFeature] = useState(null);
+  const [selectedForm, setSelectedForm] = useState(null); // for editing a form
+  const [mapInstance, setMapInstance] = useState(null);
 
-  // ── Navigation pick-mode bridge ────────────────────────────────────────
-  // When NavigationTool wants the user to click the map, it calls
-  // onPickModeChange(true, wpIndex). We set navPickMode which MapView
-  // reads to change cursor + fire onNavMapClick on every map click.
-  const [navPickMode,   setNavPickMode]   = useState(false);
-  const navToolRef = useRef(null); // ref to call NavigationTool.handleMapClick
+  // Navigation pick-mode bridge
+  const [navPickMode, setNavPickMode] = useState(false);
+  const navToolRef = useRef(null);
 
   const handlePickModeChange = (active, idx) => {
     setNavPickMode(active);
   };
 
   const handleNavMapClick = async (lat, lng) => {
-    // Delegate to NavigationTool's static handler
     if (NavigationTool.handleMapClick) {
       await NavigationTool.handleMapClick(lat, lng);
     }
@@ -41,22 +39,37 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
     setActivePanel('editor');
   };
 
-  const toggle = (id) => setActivePanel(prev => prev === id ? null : id);
+  const toggle = (id) => {
+    setActivePanel(prev => prev === id ? null : id);
+    setSelectedForm(null); // reset when switching panels
+  };
 
-  // ── Tool rail definitions ──────────────────────────────────────────────
+  const handleSelectForm = (form) => {
+    setSelectedForm(form);
+    setActivePanel('formBuilder');
+  };
+
+  const handleFormSaved = () => {
+    setSelectedForm(null);
+    onDataRefresh(); // optional
+  };
+
+  // Tool rail definitions
   const tools = [
-    { id: 'home',     icon: '🏠', label: 'Home',     color: '#4aad4a', desc: 'Overview & stats'    },
-    { id: 'nav',      icon: '🧭', label: 'Navigate', color: '#22d3ee', desc: 'GPS routing'          },
-    { id: 'editor',   icon: '✏️', label: 'Edit',     color: '#8fdc00', desc: 'Edit manhole/pipeline'},
-    { id: 'uploader', icon: '📤', label: 'Upload',   color: '#4aad4a', desc: 'Import shapefile'     },
-    { id: 'sync',     icon: '🔄', label: 'Sync',     color: '#22d3ee', desc: 'Push / pull data'     },
-    { id: 'flags',    icon: '🚩', label: 'Flags',    color: '#f59e0b', desc: 'Review issues'        },
+    { id: 'home',        icon: '🏠', label: 'Home',        color: '#4aad4a', desc: 'Overview & stats' },
+    { id: 'nav',         icon: '🧭', label: 'Navigate',    color: '#22d3ee', desc: 'GPS routing' },
+    { id: 'editor',      icon: '✏️', label: 'Edit',        color: '#8fdc00', desc: 'Edit manhole/pipeline' },
+    { id: 'uploader',    icon: '📤', label: 'Upload',      color: '#4aad4a', desc: 'Import shapefile' },
+    { id: 'sync',        icon: '🔄', label: 'Sync',        color: '#22d3ee', desc: 'Push / pull data' },
+    { id: 'flags',       icon: '🚩', label: 'Flags',       color: '#f59e0b', desc: 'Review issues' },
+    { id: 'formBuilder', icon: '📝', label: 'Forms',       color: '#8fdc00', desc: 'Create/edit forms' },
+    { id: 'submissions', icon: '📋', label: 'Submissions', color: '#f59e0b', desc: 'Review submissions' },
   ];
 
   return (
     <div className="wd-root">
 
-      {/* ── TOP BAR ───────────────────────────────────────────────────── */}
+      {/* TOP BAR */}
       <header className="wd-topbar">
         <div className="wd-brand">
           <div className="wd-brand-logo">🪣</div>
@@ -88,7 +101,7 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
         </div>
       </header>
 
-      {/* ── MAP ───────────────────────────────────────────────────────── */}
+      {/* MAP */}
       <div className="wd-map-wrap">
         <MapView
           manholes={manholes}
@@ -102,7 +115,7 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
         />
       </div>
 
-      {/* ── LEFT RAIL — with labels for new users ─────────────────────── */}
+      {/* LEFT RAIL */}
       <nav className="wd-rail">
         {tools.map((t, i) => (
           <React.Fragment key={t.id}>
@@ -113,20 +126,18 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
               onClick={() => toggle(t.id)}
               title={`${t.label} — ${t.desc}`}
             >
-              {/* Icon */}
               <span style={{ fontSize: 18, lineHeight: 1, display: 'block' }}>{t.icon}</span>
-              {/* Label — always visible for new users */}
               <span style={{
-                display:        'block',
-                fontFamily:     'var(--font-display)',
-                fontSize:       8,
-                fontWeight:     700,
-                letterSpacing:  '0.08em',
-                textTransform:  'uppercase',
-                color:          activePanel === t.id ? 'var(--text-pri)' : 'var(--text-dim)',
-                marginTop:      2,
-                lineHeight:     1,
-                textAlign:      'center',
+                display: 'block',
+                fontFamily: 'var(--font-display)',
+                fontSize: 8,
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: activePanel === t.id ? 'var(--text-pri)' : 'var(--text-dim)',
+                marginTop: 2,
+                lineHeight: 1,
+                textAlign: 'center',
               }}>
                 {t.label}
               </span>
@@ -135,8 +146,7 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
         ))}
       </nav>
 
-      {/* ── PANELS ────────────────────────────────────────────────────── */}
-
+      {/* PANELS */}
       {activePanel === 'home' && (
         <HomePanel
           manholes={manholes} pipes={pipes}
@@ -180,6 +190,32 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
         <FlagManager
           onFlagManaged={onDataRefresh}
           onClose={() => setActivePanel(null)}
+        />
+      )}
+
+      {/* FORMS: list or builder */}
+      {activePanel === 'formBuilder' && (
+        <>
+          {!selectedForm ? (
+            <FormList
+              onSelectForm={handleSelectForm}
+              onClose={() => setActivePanel(null)}
+            />
+          ) : (
+            <FormBuilder
+              form={selectedForm}
+              onSaved={handleFormSaved}
+              onCancel={() => setSelectedForm(null)}
+            />
+          )}
+        </>
+      )}
+
+      {/* SUBMISSIONS REVIEW */}
+      {activePanel === 'submissions' && (
+        <SubmissionsList
+          onClose={() => setActivePanel(null)}
+          onRefresh={onDataRefresh}
         />
       )}
 
