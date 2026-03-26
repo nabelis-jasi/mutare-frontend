@@ -4,6 +4,7 @@ import DataCollection from './DataCollection';
 import FlagFeature from './FlagFeature';
 import SyncData from './SyncData';
 import CollectorHome from './CollectorHome';
+import CollectorForm from './CollectorForm'/;
 
 import CollectorProfilePanel from './CollectorProfilePanel';
 import CollectorSettingsPanel from './CollectorSettingsPanel';
