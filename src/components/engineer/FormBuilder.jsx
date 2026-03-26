@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd'; // install
 
 export default function FormBuilder({ form, onSaved }) {
   const [title, setTitle] = useState(form?.title || '');
@@ -67,14 +66,6 @@ export default function FormBuilder({ form, onSaved }) {
     setFields(updated);
   };
 
-  const onDragEnd = (result) => {
-    if (!result.destination) return;
-    const items = Array.from(fields);
-    const [reordered] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reordered);
-    setFields(items);
-  };
-
   return (
     <div>
       <h2>{form ? 'Edit Form' : 'Create Form'}</h2>
@@ -82,25 +73,14 @@ export default function FormBuilder({ form, onSaved }) {
       <textarea placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} />
 
       <h3>Fields</h3>
-      <DragDropContext onDragEnd={onDragEnd}>
-        <Droppable droppableId="fields">
-          {provided => (
-            <div ref={provided.innerRef} {...provided.droppableProps}>
-              {fields.map((field, idx) => (
-                <Draggable key={field.id} draggableId={String(field.id)} index={idx}>
-                  {provided => (
-                    <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}>
-                      <strong>{field.label}</strong> ({field.field_type})
-                      <button onClick={() => removeField(idx)}>Delete</button>
-                    </div>
-                  )}
-                </Draggable>
-              ))}
-              {provided.placeholder}
-            </div>
-          )}
-        </Droppable>
-      </DragDropContext>
+      <div>
+        {fields.map((field, idx) => (
+          <div key={field.id}>
+            <strong>{field.label}</strong> ({field.field_type})
+            <button onClick={() => removeField(idx)}>Delete</button>
+          </div>
+        ))}
+      </div>
 
       <div>
         <input placeholder="Label" value={newField.label} onChange={e => setNewField({...newField, label: e.target.value})} />
