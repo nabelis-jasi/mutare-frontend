@@ -9,8 +9,8 @@ import HomePanel from './HomePanel';
 import ProfilePanel from './ProfilePanel';
 import SettingsPanel from './SettingsPanel';
 import './Dashboard.css';
-import FormBuilder from './FormBuilder'/;
-import ReviewForm from './ReviewForm'/;
+import FormBuilder from './FormBuilder';
+import ReviewForm from './ReviewForm';
 
 export default function EngineerDashboard({ manholes, pipes, userId, role, onDataRefresh, userProfile }) {
   const [activePanel,   setActivePanel]   = useState(null);
