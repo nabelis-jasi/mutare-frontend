@@ -195,21 +195,22 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
 
       {/* FORMS: list or builder */}
       {activePanel === 'formBuilder' && (
-        <>
-          {!selectedForm ? (
-            <FormList
-              onSelectForm={handleSelectForm}
-              onClose={() => setActivePanel(null)}
-            />
-          ) : (
-            <FormBuilder
-              form={selectedForm}
-              onSaved={handleFormSaved}
-              onCancel={() => setSelectedForm(null)}
-            />
-          )}
-        </>
-      )}
+  <>
+    {!selectedForm ? (
+      <FormList
+        onSelectForm={handleSelectForm}
+        onClose={() => setActivePanel(null)}
+        onCreateNew={() => setSelectedForm({})}
+      />
+    ) : (
+      <FormBuilder
+        form={selectedForm}
+        onSaved={handleFormSaved}
+        onCancel={() => setSelectedForm(null)}
+      />
+    )}
+  </>
+)}
 
       {/* SUBMISSIONS REVIEW */}
       {activePanel === 'submissions' && (
