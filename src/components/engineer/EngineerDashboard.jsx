@@ -11,15 +11,15 @@ import SettingsPanel from './SettingsPanel';
 import FormBuilder from './FormBuilder';
 import FormList from './FormList';
 import SubmissionsList from './SubmissionsList';
+import PendingEdits from './PendingEdits';            // <-- new import
 import './Dashboard.css';
 
 export default function EngineerDashboard({ manholes, pipes, userId, role, onDataRefresh, userProfile }) {
   const [activePanel, setActivePanel] = useState(null);
   const [selectedFeature, setFeature] = useState(null);
-  const [selectedForm, setSelectedForm] = useState(null); // for editing a form
+  const [selectedForm, setSelectedForm] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
 
-  // Navigation pick-mode bridge
   const [navPickMode, setNavPickMode] = useState(false);
   const navToolRef = useRef(null);
 
@@ -41,7 +41,7 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
 
   const toggle = (id) => {
     setActivePanel(prev => prev === id ? null : id);
-    setSelectedForm(null); // reset when switching panels
+    setSelectedForm(null);
   };
 
   const handleSelectForm = (form) => {
@@ -51,10 +51,9 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
 
   const handleFormSaved = () => {
     setSelectedForm(null);
-    onDataRefresh(); // optional
+    onDataRefresh();
   };
 
-  // Tool rail definitions
   const tools = [
     { id: 'home',        icon: '🏠', label: 'Home',        color: '#4aad4a', desc: 'Overview & stats' },
     { id: 'nav',         icon: '🧭', label: 'Navigate',    color: '#22d3ee', desc: 'GPS routing' },
@@ -64,12 +63,13 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
     { id: 'flags',       icon: '🚩', label: 'Flags',       color: '#f59e0b', desc: 'Review issues' },
     { id: 'formBuilder', icon: '📝', label: 'Forms',       color: '#8fdc00', desc: 'Create/edit forms' },
     { id: 'submissions', icon: '📋', label: 'Submissions', color: '#f59e0b', desc: 'Review submissions' },
+    { id: 'pendingEdits', icon: '✏️', label: 'Edits',      color: '#ff9800', desc: 'Review asset edits' }, // <-- new tool
   ];
 
   return (
     <div className="wd-root">
 
-      {/* TOP BAR */}
+      {/* TOP BAR (unchanged) */}
       <header className="wd-topbar">
         <div className="wd-brand">
           <div className="wd-brand-logo">🪣</div>
@@ -195,28 +195,35 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
 
       {/* FORMS: list or builder */}
       {activePanel === 'formBuilder' && (
-  <>
-    {!selectedForm ? (
-      <FormList
-        onSelectForm={handleSelectForm}
-        onClose={() => setActivePanel(null)}
-        onCreateNew={() => setSelectedForm({})}
-      />
-    ) : (
-      <FormBuilder
-        form={selectedForm}
-        onSaved={handleFormSaved}
-        onCancel={() => setSelectedForm(null)}
-      />
-    )}
-  </>
-)}
+        <>
+          {!selectedForm ? (
+            <FormList
+              onSelectForm={handleSelectForm}
+              onClose={() => setActivePanel(null)}
+              onCreateNew={() => setSelectedForm({})}
+            />
+          ) : (
+            <FormBuilder
+              form={selectedForm}
+              onSaved={handleFormSaved}
+              onCancel={() => setSelectedForm(null)}
+            />
+          )}
+        </>
+      )}
 
       {/* SUBMISSIONS REVIEW */}
       {activePanel === 'submissions' && (
         <SubmissionsList
           onClose={() => setActivePanel(null)}
           onRefresh={onDataRefresh}
+        />
+      )}
+
+      {/* NEW: PENDING ASSET EDITS */}
+      {activePanel === 'pendingEdits' && (
+        <PendingEdits
+          onClose={() => setActivePanel(null)}
         />
       )}
 
