@@ -55,7 +55,7 @@
 
   /* Layout */
   --topbar-h:  58px;
-  --rail-w:    64px;
+  --rail-w:    56px;
   --panel-w:   400px;
 
   /* Radii */
@@ -263,23 +263,28 @@
   position: absolute;
   top: var(--topbar-h);
   left: 0; right: 0; bottom: 0;
+  /* The rail (46px + 10px margin = 56px) and legend sit inside the map
+     container — they are z-indexed over the map, NOT pushing layout */
 }
 
 /* ── TOOL RAIL ───────────────────────────────────────────────────── */
 .wd-rail {
   position: absolute;
-  top: calc(var(--topbar-h) + 14px);
-  left: 14px;
+  top: calc(var(--topbar-h) + 10px);
+  left: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   z-index: 1100;
+  /* Constrain so buttons never overlap the legend (bottom-left) */
+  max-height: calc(100vh - var(--topbar-h) - 120px);
+  overflow: visible;
 }
 
 .wd-rail-btn {
   position: relative;
-  width: 54px;
-  height: 54px;
+  width: 46px;
+  height: 46px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
@@ -289,8 +294,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  font-size: 18px;
+  gap: 2px;
+  font-size: 16px;
   transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
   overflow: hidden;
   backdrop-filter: blur(12px);
@@ -353,10 +358,10 @@
 
 /* Rail divider */
 .wd-rail-sep {
-  width: 54px;
+  width: 46px;
   height: 1px;
   background: var(--border);
-  margin: 2px 0;
+  margin: 1px 0;
 }
 
 /* ── PANEL BASE ──────────────────────────────────────────────────── */
@@ -1221,3 +1226,111 @@
   margin-top: 8px;
 }
 .wd-sub-actions .wd-btn { flex: 1; padding: 7px 10px; font-size: 11px; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   PENDING ASSET EDITS — green design system
+   ═══════════════════════════════════════════════════════════════════ */
+
+.wd-edit-item {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px;
+  margin-bottom: 8px;
+  transition: border-color 0.15s;
+  animation: panel-in 0.2s ease;
+}
+.wd-edit-item:hover { border-color: var(--border-hi); }
+
+.wd-edit-item .ei-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+
+.wd-edit-item .ei-type {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-pri);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wd-edit-item .ei-id {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+.wd-edit-item .ei-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+.wd-edit-item .ei-data {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-sec);
+  white-space: pre-wrap;
+  max-height: 120px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.wd-edit-actions {
+  display: flex;
+  gap: 6px;
+}
+.wd-edit-actions .wd-btn { flex: 1; font-size: 11px; padding: 7px 10px; }
+
+/* Feature type chip inside edit item */
+.wd-edit-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wd-edit-type-chip.manhole  { background: rgba(74,173,74,0.12);  border: 1px solid rgba(74,173,74,0.3);  color: var(--accent-primary); }
+.wd-edit-type-chip.pipeline { background: rgba(59,130,246,0.1);  border: 1px solid rgba(59,130,246,0.25); color: var(--accent-blue); }
+
+/* Count badge in topbar or rail */
+.wd-rail-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 15px;
+  height: 15px;
+  background: var(--accent-amber);
+  border-radius: 99px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  color: #0d0800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  border: 1px solid rgba(7,20,7,0.6);
+  pointer-events: none;
+}
