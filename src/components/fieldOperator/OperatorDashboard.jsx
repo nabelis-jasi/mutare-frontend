@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import MapView from '../MapView';
 import StatusUpdater from './StatusUpdater';
 import MaintenanceRecords from './MaintenanceRecords';
-import AssetEditor from './AssetEditor';           // <-- new import
 import OperatorProfilePanel from './OperatorProfilePanel';
 import OperatorSettingsPanel from './OperatorSettingsPanel';
 import './Dashboard.css';
