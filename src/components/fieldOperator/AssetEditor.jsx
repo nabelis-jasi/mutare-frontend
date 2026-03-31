@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 
-export default function AssetEditor({ userId, onEditSubmitted }) {
-  const [featureType, setFeatureType] = useState('manhole');
-  const [featureId, setFeatureId] = useState('');
+export default function AssetEditor({ userId, onEditSubmitted, onCancel, initialFeatureType = 'manhole', initialFeatureId = '' }) {
+  const [featureType, setFeatureType] = useState(initialFeatureType);
+  const [featureId, setFeatureId] = useState(initialFeatureId);
   const [asset, setAsset] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -13,7 +13,11 @@ export default function AssetEditor({ userId, onEditSubmitted }) {
     last_inspection_date: '',
     condition_status: '',
     location_lat: '',
-    location_lng: ''
+    location_lng: '',
+    // Additional manhole fields
+    depth: '',
+    invert_level: '',
+    ground_level: ''
   });
 
   // Fetch asset when featureId changes
@@ -45,7 +49,10 @@ export default function AssetEditor({ userId, onEditSubmitted }) {
         last_inspection_date: data.last_inspection_date || '',
         condition_status: data.condition_status || '',
         location_lat: data.location?.coordinates?.[1] || '',
-        location_lng: data.location?.coordinates?.[0] || ''
+        location_lng: data.location?.coordinates?.[0] || '',
+        depth: data.depth || '',
+        invert_level: data.invert_level || '',
+        ground_level: data.ground_level || ''
       });
       setMessage('');
     }
@@ -58,7 +65,10 @@ export default function AssetEditor({ userId, onEditSubmitted }) {
       last_inspection_date: '',
       condition_status: '',
       location_lat: '',
-      location_lng: ''
+      location_lng: '',
+      depth: '',
+      invert_level: '',
+      ground_level: ''
     });
   };
 
@@ -81,6 +91,13 @@ export default function AssetEditor({ userId, onEditSubmitted }) {
         ? `POINT(${editableData.location_lng} ${editableData.location_lat})`
         : null
     };
+
+    // Add manhole-specific fields if applicable
+    if (featureType === 'manhole') {
+      if (editableData.depth !== '') proposed.depth = parseFloat(editableData.depth);
+      if (editableData.invert_level !== '') proposed.invert_level = parseFloat(editableData.invert_level);
+      if (editableData.ground_level !== '') proposed.ground_level = parseFloat(editableData.ground_level);
+    }
 
     // Remove nulls (don't update if empty)
     Object.keys(proposed).forEach(key => {
@@ -112,13 +129,12 @@ export default function AssetEditor({ userId, onEditSubmitted }) {
     setSaving(false);
   };
 
-  // Inline styles (matching your previous design)
   const styles = {
     container: {
       position: "absolute",
       top: "80px",
       right: "20px",
-      width: "450px",
+      width: "500px",
       backgroundColor: "white",
       borderRadius: "12px",
       boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
@@ -150,7 +166,7 @@ export default function AssetEditor({ userId, onEditSubmitted }) {
     <div style={styles.container}>
       <div style={styles.header}>
         <span>✏️ Edit Asset</span>
-        <button style={styles.closeBtn} onClick={() => onEditSubmitted?.()}>✕</button>
+        <button style={styles.closeBtn} onClick={onCancel}>✕</button>
       </div>
       <div style={styles.content}>
         <div style={styles.row}>
@@ -243,6 +259,41 @@ export default function AssetEditor({ userId, onEditSubmitted }) {
                 <option value="critical">Critical</option>
               </select>
             </div>
+
+            {featureType === 'manhole' && (
+              <>
+                <div style={styles.row}>
+                  <label style={styles.label}>Depth (m)</label>
+                  <input
+                    style={styles.input}
+                    type="number"
+                    step="0.01"
+                    value={editableData.depth}
+                    onChange={(e) => handleChange('depth', e.target.value)}
+                  />
+                </div>
+                <div style={styles.row}>
+                  <label style={styles.label}>Invert Level (m)</label>
+                  <input
+                    style={styles.input}
+                    type="number"
+                    step="0.01"
+                    value={editableData.invert_level}
+                    onChange={(e) => handleChange('invert_level', e.target.value)}
+                  />
+                </div>
+                <div style={styles.row}>
+                  <label style={styles.label}>Ground Level (m)</label>
+                  <input
+                    style={styles.input}
+                    type="number"
+                    step="0.01"
+                    value={editableData.ground_level}
+                    onChange={(e) => handleChange('ground_level', e.target.value)}
+                  />
+                </div>
+              </>
+            )}
 
             <button
               style={{ ...styles.button, ...styles.submitBtn }}
