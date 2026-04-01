@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import MapView from '../MapView';
 import StatusUpdater from './StatusUpdater';
 import MaintenanceRecords from './MaintenanceRecords';
-import NavigationTool from '../engineer/NavigationTool';   // adjust path if needed
+import NavigationTool from '../NavigationTool';
 import OperatorProfilePanel from './OperatorProfilePanel';
 import OperatorSettingsPanel from './OperatorSettingsPanel';
 import './Dashboard.css';
