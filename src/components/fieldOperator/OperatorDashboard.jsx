@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import MapView from '../MapView';
 import StatusUpdater from './StatusUpdater';
 import MaintenanceRecords from './MaintenanceRecords';
+import NavigationTool from '../engineer/NavigationTool';   // adjust path if needed
 import OperatorProfilePanel from './OperatorProfilePanel';
 import OperatorSettingsPanel from './OperatorSettingsPanel';
 import './Dashboard.css';
@@ -9,8 +10,19 @@ import './Dashboard.css';
 export default function OperatorDashboard({ manholes, pipes, userId, role, onDataRefresh }) {
   const [activePanel, setActivePanel] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
-  const [navPickMode, setNavPickMode] = useState(false);
   const [selectedFeature, setSelectedFeature] = useState(null);
+  const [navPickMode, setNavPickMode] = useState(false);
+
+  const handlePickModeChange = (active, idx) => {
+    setNavPickMode(active);
+  };
+
+  const handleNavMapClick = async (lat, lng) => {
+    if (NavigationTool.handleMapClick) {
+      await NavigationTool.handleMapClick(lat, lng);
+    }
+    setNavPickMode(false);
+  };
 
   const togglePanel = (panelId) => {
     setActivePanel(prev => (prev === panelId ? null : panelId));
@@ -19,11 +31,7 @@ export default function OperatorDashboard({ manholes, pipes, userId, role, onDat
 
   const handleFeatureClick = (feature) => {
     setSelectedFeature(feature);
-    setActivePanel('maintenance'); // open maintenance panel with the clicked asset
-  };
-
-  const handleNavMapClick = (lat, lng) => {
-    console.log('Map clicked for navigation:', lat, lng);
+    setActivePanel('maintenance');
   };
 
   const handleStatusUpdateComplete = () => {
@@ -38,16 +46,16 @@ export default function OperatorDashboard({ manholes, pipes, userId, role, onDat
     if (onDataRefresh) onDataRefresh();
   };
 
+  // Left rail tools – only core tools, profile/settings are in header
   const tools = [
     { id: 'status', label: 'STATUS', desc: 'Update manhole/pipeline condition', icon: '📝', color: 'var(--accent-primary)' },
+    { id: 'nav', label: 'NAV', desc: 'GPS routing', icon: '🧭', color: '#22d3ee' },
     { id: 'maintenance', label: 'MAINT', desc: 'View maintenance history & schedule', icon: '🔧', color: 'var(--accent-amber)' },
-    { id: 'profile', label: 'PROFILE', desc: 'User profile', icon: '👤', color: 'var(--accent-primary)' },
-    { id: 'settings', label: 'SETTINGS', desc: 'App settings', icon: '⚙️', color: 'var(--accent-lime)' },
   ];
 
   return (
     <div className="wd-root">
-      {/* TOP BAR (unchanged) */}
+      {/* TOP BAR */}
       <header className="wd-topbar">
         <div className="wd-brand">
           <div className="wd-brand-logo">🪣</div>
@@ -99,7 +107,7 @@ export default function OperatorDashboard({ manholes, pipes, userId, role, onDat
         />
       </div>
 
-      {/* LEFT RAIL */}
+      {/* LEFT RAIL – only status, nav, maintenance */}
       <nav className="wd-rail">
         {tools.map((tool, index) => (
           <React.Fragment key={tool.id}>
@@ -146,6 +154,14 @@ export default function OperatorDashboard({ manholes, pipes, userId, role, onDat
             <StatusUpdater onUpdateComplete={handleStatusUpdateComplete} />
           </div>
         </div>
+      )}
+
+      {activePanel === 'nav' && (
+        <NavigationTool
+          map={mapInstance}
+          onClose={() => { setActivePanel(null); setNavPickMode(false); }}
+          onPickModeChange={handlePickModeChange}
+        />
       )}
 
       {activePanel === 'maintenance' && (
