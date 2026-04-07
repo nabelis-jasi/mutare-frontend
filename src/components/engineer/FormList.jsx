@@ -1,5 +1,6 @@
+// src/components/engineer/FormList.jsx
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../supabaseClient';
+import api from "../../api/api"; // adjust path to your api.js
 
 export default function FormList({ onSelectForm, onClose, onCreateNew }) {
   const [forms,   setForms]   = useState([]);
@@ -8,21 +9,24 @@ export default function FormList({ onSelectForm, onClose, onCreateNew }) {
   useEffect(() => { fetchForms(); }, []);
 
   const fetchForms = async () => {
-    const { data, error } = await supabase
-      .from('forms')
-      .select('id, title, description, is_active, created_at')
-      .order('created_at', { ascending: false });
-    if (!error) setForms(data || []);
-    setLoading(false);
+    try {
+      const res = await api.get('/forms');
+      setForms(res.data || []);
+    } catch (err) {
+      console.error('Error fetching forms', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleActive = async (e, form) => {
     e.stopPropagation();
-    const { error } = await supabase
-      .from('forms')
-      .update({ is_active: !form.is_active })
-      .eq('id', form.id);
-    if (!error) fetchForms();
+    try {
+      await api.put(`/forms/${form.id}`, { is_active: !form.is_active });
+      await fetchForms();
+    } catch (err) {
+      console.error('Error toggling active status', err);
+    }
   };
 
   return (
@@ -71,7 +75,6 @@ export default function FormList({ onSelectForm, onClose, onCreateNew }) {
                   </span>
                 </div>
               </div>
-              {/* Toggle active without opening form */}
               <button
                 onClick={(e) => toggleActive(e, form)}
                 title={form.is_active ? 'Deactivate' : 'Activate'}
