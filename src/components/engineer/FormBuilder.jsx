@@ -1,5 +1,6 @@
+// src/components/engineer/FormBuilder.jsx
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../supabaseClient';
+import api from "../../api/api"; // adjust path to your api.js
 
 const FIELD_TYPES = [
   { id: 'text',     icon: '🔤', label: 'Text'     },
@@ -23,19 +24,34 @@ export default function FormBuilder({ form, onSaved, onCancel }) {
   const [saving,      setSaving]      = useState(false);
   const [saved,       setSaved]       = useState(false);
   const [error,       setError]       = useState('');
+  const [userId,      setUserId]      = useState(null);
 
+  // Get current user ID on mount
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await api.get('/me');
+        setUserId(res.data.id);
+      } catch (err) {
+        console.error('Failed to fetch user', err);
+      }
+    };
+    fetchUser();
+  }, []);
+
+  // Fetch fields if editing an existing form
   useEffect(() => {
     if (form?.id) fetchFields();
     else setFields([]);
   }, [form]);
 
   const fetchFields = async () => {
-    const { data } = await supabase
-      .from('form_fields')
-      .select('*')
-      .eq('form_id', form.id)
-      .order('order_index');
-    setFields(data || []);
+    try {
+      const res = await api.get(`/forms/${form.id}/fields`);
+      setFields(res.data || []);
+    } catch (err) {
+      console.error('Error fetching fields', err);
+    }
   };
 
   const addField = () => {
@@ -63,42 +79,29 @@ export default function FormBuilder({ form, onSaved, onCancel }) {
     let formId = form?.id;
 
     try {
+      // 1. Create or update the form metadata
       if (isNew) {
-        const { data: { user } } = await supabase.auth.getUser();
-        const { data, error: e } = await supabase
-          .from('forms')
-          .insert({ title, description, created_by: user.id, is_active: true })
-          .select()
-          .single();
-        if (e) throw e;
-        formId = data.id;
+        const res = await api.post('/forms', { title, description });
+        formId = res.data.id;
       } else {
-        const { error: e } = await supabase
-          .from('forms')
-          .update({ title, description })
-          .eq('id', formId);
-        if (e) throw e;
+        await api.put(`/forms/${formId}`, { title, description });
       }
 
-      // Replace all fields
-      await supabase.from('form_fields').delete().eq('form_id', formId);
-      for (let i = 0; i < fields.length; i++) {
-        const f = fields[i];
-        const { error: fe } = await supabase.from('form_fields').insert({
-          form_id:     formId,
-          label:       f.label,
-          field_type:  f.field_type,
-          options:     f.options ? f.options.split(',').map(s => s.trim()).filter(Boolean) : null,
-          required:    f.required,
-          order_index: i,
-        });
-        if (fe) throw fe;
-      }
+      // 2. Prepare fields payload (without temporary ids)
+      const fieldsPayload = fields.map(({ id, label, field_type, options, required }) => ({
+        label,
+        field_type,
+        options: options ? options.split(',').map(s => s.trim()).filter(Boolean) : null,
+        required,
+      }));
+
+      // 3. Replace all fields in one request
+      await api.post(`/forms/${formId}/fields`, fieldsPayload);
 
       setSaved(true);
       setTimeout(() => { onSaved?.(); }, 900);
     } catch (err) {
-      setError('Save failed: ' + err.message);
+      setError('Save failed: ' + (err.response?.data?.error || err.message));
     } finally {
       setSaving(false);
     }
