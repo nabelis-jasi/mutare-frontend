@@ -1,5 +1,6 @@
+// src/components/engineer/PendingEdits.jsx
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../supabaseClient';
+import api from "../../api/api"; // adjust path
 
 export default function PendingEdits({ onClose, onEditProcessed }) {
   const [edits,      setEdits]      = useState([]);
@@ -12,73 +13,50 @@ export default function PendingEdits({ onClose, onEditProcessed }) {
 
   const fetchPending = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('asset_edits')
-      .select('*')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true });
-
-    const rows = data || [];
-    setEdits(rows);
-    setStats({
-      total:     rows.length,
-      manholes:  rows.filter(e => e.feature_type === 'manhole').length,
-      pipelines: rows.filter(e => e.feature_type === 'pipeline').length,
-    });
-    setLoading(false);
+    try {
+      const res = await api.get('/asset-edits');
+      const rows = res.data || [];
+      setEdits(rows);
+      setStats({
+        total:     rows.length,
+        manholes:  rows.filter(e => e.feature_type === 'manhole').length,
+        pipelines: rows.filter(e => e.feature_type === 'pipeline').length,
+      });
+    } catch (err) {
+      console.error('Error fetching pending edits:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const approveEdit = async (edit) => {
     setProcessing(edit.id);
-    const table = edit.feature_type === 'manhole'
-      ? 'waste_water_manhole'
-      : 'waste_water_pipeline';
-
-    // Apply the proposed changes to the main table
-    const { error: updateError } = await supabase
-      .from(table)
-      .update(edit.proposed_data)
-      .eq('id', edit.feature_id);
-
-    if (updateError) {
-      alert(`Update failed: ${updateError.message}`);
+    try {
+      await api.put(`/asset-edits/${edit.id}/approve`);
+      await fetchPending();
+      onEditProcessed?.();
+    } catch (err) {
+      alert(`Approval failed: ${err.response?.data?.error || err.message}`);
+    } finally {
       setProcessing(null);
-      return;
     }
-
-    // Mark edit record as approved
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase
-      .from('asset_edits')
-      .update({
-        status:      'approved',
-        reviewed_by: user.id,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq('id', edit.id);
-
-    fetchPending();
-    onEditProcessed?.();
-    setProcessing(null);
   };
 
   const rejectEdit = async (edit) => {
     if (!confirm('Reject this proposed edit?')) return;
     setProcessing(edit.id);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase
-      .from('asset_edits')
-      .update({
-        status:      'rejected',
-        reviewed_by: user.id,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq('id', edit.id);
-
-    fetchPending();
-    onEditProcessed?.();
-    setProcessing(null);
+    try {
+      // You need a reject endpoint in the backend. If not, you can use a generic update.
+      // Example: await api.put(`/asset-edits/${edit.id}`, { status: 'rejected' });
+      // I'll assume you have a reject endpoint:
+      await api.put(`/asset-edits/${edit.id}/reject`);
+      await fetchPending();
+      onEditProcessed?.();
+    } catch (err) {
+      alert(`Rejection failed: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setProcessing(null);
+    }
   };
 
   const typeIcon = (t) => t === 'manhole' ? '🕳️' : '📏';
@@ -86,7 +64,7 @@ export default function PendingEdits({ onClose, onEditProcessed }) {
   return (
     <div className="wd-panel" style={{ '--panel-icon-bg': 'rgba(245,158,11,0.1)', '--panel-icon-border': 'rgba(245,158,11,0.3)' }}>
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="wd-panel-header">
         <div className="wd-panel-icon">📋</div>
         <div>
@@ -98,7 +76,7 @@ export default function PendingEdits({ onClose, onEditProcessed }) {
         <button className="wd-panel-close" onClick={onClose}>×</button>
       </div>
 
-      {/* ── Stats bar ── */}
+      {/* Stats bar */}
       {!loading && (
         <div style={{
           padding: '10px 16px',
@@ -120,45 +98,28 @@ export default function PendingEdits({ onClose, onEditProcessed }) {
         </div>
       )}
 
-      {/* ── Body ── */}
+      {/* Body */}
       <div className="wd-panel-body">
-
         {loading ? (
-          <div style={{
-            textAlign: 'center', padding: 32,
-            fontFamily: 'var(--font-mono)', fontSize: 12,
-            color: 'var(--text-sec)',
-          }}>
+          <div style={{ textAlign: 'center', padding: 32, fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-sec)' }}>
             ⟳ Loading pending edits…
           </div>
-
         ) : edits.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 32 }}>
             <div style={{ fontSize: 36, marginBottom: 10 }}>✅</div>
-            <div style={{
-              fontFamily: 'var(--font-display)', fontSize: 14,
-              fontWeight: 700, textTransform: 'uppercase',
-              letterSpacing: '0.06em', color: 'var(--accent-primary)',
-            }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-primary)' }}>
               All clear
             </div>
-            <div style={{
-              fontFamily: 'var(--font-mono)', fontSize: 11,
-              color: 'var(--text-dim)', marginTop: 4,
-            }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
               No pending asset edits at this time
             </div>
           </div>
-
         ) : (
           edits.map(edit => {
             const isOpen = expanded === edit.id;
             const busy   = processing === edit.id;
-
             return (
               <div key={edit.id} className="wd-edit-item">
-
-                {/* Type + chip */}
                 <div className="ei-top">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
                     <span style={{ fontSize: 18 }}>{typeIcon(edit.feature_type)}</span>
@@ -174,13 +135,11 @@ export default function PendingEdits({ onClose, onEditProcessed }) {
                   </span>
                 </div>
 
-                {/* Timestamp */}
                 <div className="ei-time">
                   🕐 Submitted {new Date(edit.created_at).toLocaleString()}
                   {edit.submitted_by && ` · by ${edit.submitted_by.slice(0, 8)}…`}
                 </div>
 
-                {/* Expandable data preview */}
                 <button
                   onClick={() => setExpanded(isOpen ? null : edit.id)}
                   style={{
@@ -200,7 +159,6 @@ export default function PendingEdits({ onClose, onEditProcessed }) {
                   </div>
                 )}
 
-                {/* Actions */}
                 <div className="wd-edit-actions">
                   <button
                     className="wd-btn wd-btn-primary"
