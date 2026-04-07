@@ -1,6 +1,6 @@
 // src/components/RequestAccess.jsx
 import React, { useState } from "react";
-import api from "../api"; // our axios client
+import api from "./api"; // our axios client
 
 export default function RequestAccess({ selectedRole, onBack }) {
   const [email, setEmail] = useState("");
