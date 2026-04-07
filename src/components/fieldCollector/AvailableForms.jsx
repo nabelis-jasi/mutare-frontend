@@ -1,16 +1,20 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '../../supabaseClient';
+// src/components/fieldCollector/AvailableForms.jsx
+import React, { useEffect, useState } from 'react';
+import api from "../../api/api"; // adjust path
 
 export default function AvailableForms({ onSelectForm }) {
   const [forms, setForms] = useState([]);
 
   useEffect(() => {
     const fetchActiveForms = async () => {
-      const { data } = await supabase
-        .from('forms')
-        .select('id, title, description')
-        .eq('is_active', true);
-      setForms(data || []);
+      try {
+        const res = await api.get('/forms');
+        // Filter only active forms (is_active === true)
+        const activeForms = (res.data || []).filter(f => f.is_active === true);
+        setForms(activeForms);
+      } catch (err) {
+        console.error('Error fetching forms', err);
+      }
     };
     fetchActiveForms();
   }, []);
