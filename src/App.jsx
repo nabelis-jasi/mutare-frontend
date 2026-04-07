@@ -1,6 +1,6 @@
 // src/App.jsx
 import React, { useState, useEffect } from "react";
-import api from "./api";
+import api from "./api/api";
 import LandingPortal from "./components/LandingPortal";
 import Splash from "./components/Splash";
 import Signup from "./components/Signup";
