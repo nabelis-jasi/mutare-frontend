@@ -1,11 +1,12 @@
+// src/components/engineer/EngineerDashboard.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { supabase } from '../../supabaseClient';
+import api from "../../api/api"; // adjust path
 import MapView from '../MapView';
 import DataEditor from './DataEditor';
 import ShapefileUploader from './ShapefileUploader';
 import DataSync from './DataSync';
 import FlagManager from './FlagManager';
-// import NavigationTool from './NavigationTool';   // <-- removed
+// import NavigationTool from './NavigationTool';   // removed
 import HomePanel from './HomePanel';
 import ProfilePanel from './ProfilePanel';
 import SettingsPanel from './SettingsPanel';
@@ -25,11 +26,14 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
   // Fetch pending edit count for badge
   useEffect(() => { fetchPendingCount(); }, []);
   const fetchPendingCount = async () => {
-    const { count } = await supabase
-      .from('asset_edits')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending');
-    setPendingEditCount(count ?? 0);
+    try {
+      // Expect backend to return an array of pending edits; we just need the count
+      const res = await api.get('/asset-edits?status=pending');
+      setPendingEditCount(res.data.length ?? 0);
+    } catch (err) {
+      console.error('Error fetching pending edit count', err);
+      setPendingEditCount(0);
+    }
   };
 
   const handleFeatureClick = (feature) => {
@@ -52,7 +56,7 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
     onDataRefresh();
   };
 
-  // Tool rail definitions – removed 'nav'
+  // Tool rail definitions – no navigation tool
   const tools = [
     { id: 'home',        icon: '🏠', label: 'Home',        color: '#4aad4a', desc: 'Overview & stats' },
     { id: 'editor',      icon: '✏️', label: 'Edit',        color: '#8fdc00', desc: 'Edit manhole/pipeline' },
