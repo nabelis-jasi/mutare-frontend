@@ -1,5 +1,5 @@
+// src/components/RoleSelection.jsx
 import React from "react";
-import Logo from "./Logo";
 
 export default function RoleSelection({ onSelectRole }) {
   const roles = [
@@ -28,16 +28,8 @@ export default function RoleSelection({ onSelectRole }) {
 
   return (
     <div style={styles.container}>
-      {/* Background logo */}
-      <img 
-        src="/src/assets/logo.png" 
-        alt="" 
-        style={styles.backgroundLogo}
-      />
-      
       <div style={styles.content}>
-        <Logo size="large" />
-        
+        {/* No logo component – just title */}
         <h1 style={styles.title}>Wastewater GIS</h1>
         <p style={styles.subtitle}>Select your role to continue</p>
         
@@ -79,17 +71,6 @@ const styles = {
     overflow: "hidden",
     margin: 0,
     padding: 0,
-  },
-  backgroundLogo: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    opacity: 0.20,
-    pointerEvents: "none",
-    zIndex: 1,
-    objectFit: "cover",
   },
   content: {
     position: "relative",
