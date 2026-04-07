@@ -1,5 +1,6 @@
+// src/components/fieldCollector/CollectorProfilePanel.jsx
 import React, { useState } from 'react';
-import { supabase } from '../../supabaseClient';
+import api from "../../api/api"; // adjust path
 
 export default function CollectorProfilePanel({ userId, role, userProfile, onClose }) {
   const [editing, setEditing] = useState(false);
@@ -14,19 +15,25 @@ export default function CollectorProfilePanel({ userId, role, userProfile, onClo
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ full_name: name, phone, department: dept, updated_at: new Date().toISOString() })
-        .eq('id', userId);
-      if (error) throw error;
+      await api.put('/profile', {
+        full_name: name,
+        phone: phone,
+        department: dept,
+      });
       setSaved(true);
       setEditing(false);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      alert('Error saving profile: ' + err.message);
+      alert('Error saving profile: ' + (err.response?.data?.error || err.message));
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSignOut = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.reload();
   };
 
   const stats = [
@@ -116,10 +123,7 @@ export default function CollectorProfilePanel({ userId, role, userProfile, onClo
         <button
           className="wd-btn wd-btn-danger"
           style={{ width: '100%' }}
-          onClick={async () => {
-            await supabase.auth.signOut();
-            window.location.reload();
-          }}
+          onClick={handleSignOut}
         >
           🚪 Sign Out
         </button>
