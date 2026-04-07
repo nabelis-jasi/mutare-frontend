@@ -1,6 +1,6 @@
 // src/components/Signup.jsx
 import React, { useState } from "react";
-import api from "./api/api"; // our axios client
+import api from "../api/api"; // our axios client
 
 export default function Signup({ selectedRole, onBack }) {
   const [email, setEmail] = useState("");
