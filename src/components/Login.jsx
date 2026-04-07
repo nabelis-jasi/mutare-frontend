@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import api from "./api/api";  // our axios client (to be created)
+import api from "../api/api";  // our axios client (to be created)
 
 export default function Login({ selectedRole, onLoginSuccess, onBack }) {
   const [email, setEmail] = useState("");
