@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../../supabaseClient';
-import { saveOffline } from './OfflineStorage'; // we'll define
+// src/components/fieldCollector/DynamicForm.jsx
+import React, { useState, useEffect } from 'react';
+import api from "../../api/api"; // adjust path
+import { saveOffline } from './OfflineStorage';
 
-export default function DynamicForm({ form, onSubmitted }) {
+export default function DynamicForm({ form, userId, onSubmitted }) {
   const [fields, setFields] = useState([]);
   const [answers, setAnswers] = useState({});
   const [loading, setLoading] = useState(true);
@@ -11,19 +12,21 @@ export default function DynamicForm({ form, onSubmitted }) {
 
   useEffect(() => {
     const fetchFields = async () => {
-      const { data } = await supabase
-        .from('form_fields')
-        .select('*')
-        .eq('form_id', form.id)
-        .order('order_index');
-      setFields(data || []);
-      setLoading(false);
+      try {
+        const res = await api.get(`/forms/${form.id}/fields`);
+        setFields(res.data || []);
+      } catch (err) {
+        console.error('Error fetching fields', err);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchFields();
-    // Optional: get current location
+
+    // Get current location if geolocation is available
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(pos => {
-        setLocation([pos.coords.latitude, pos.coords.longitude]);
+        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       });
     }
   }, [form.id]);
@@ -35,23 +38,22 @@ export default function DynamicForm({ form, onSubmitted }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    // Build submission data
     const submissionData = { answers, location };
-    // If online, submit directly; else store offline
+
     if (navigator.onLine) {
-      const { error } = await supabase
-        .from('form_submissions')
-        .insert({
+      try {
+        await api.post('/submissions', {
           form_id: form.id,
-          collector_id: (await supabase.auth.getUser()).data.user.id,
+          collector_id: userId,
           data: submissionData,
-          location: location ? `POINT(${location[1]} ${location[0]})` : null,
+          location: location ? { lat: location.lat, lng: location.lng } : null,
           status: 'pending'
         });
-      if (!error) {
         alert('Submitted successfully');
         onSubmitted();
-      } else alert('Error: ' + error.message);
+      } catch (err) {
+        alert('Error: ' + (err.response?.data?.error || err.message));
+      }
     } else {
       // Save offline
       await saveOffline({ form, data: submissionData, location });
@@ -105,10 +107,12 @@ export default function DynamicForm({ form, onSubmitted }) {
               onChange={e => handleChange(field.id, e.target.checked)}
             />
           )}
-          {/* location and photo would require more UI, but you can expand later */}
+          {/* Additional field types (location, photo) can be added later */}
         </div>
       ))}
-      <button type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit'}</button>
+      <button type="submit" disabled={submitting}>
+        {submitting ? 'Submitting...' : 'Submit'}
+      </button>
     </form>
   );
 }
