@@ -178,16 +178,14 @@ function TileSelector({ activeTiles, setActiveTiles }) {
   );
 }
 
-// ── GeoServer Connection Component (FIXED URL)
+// ── GeoServer Connection Component
 function GeoServerLayers({ geoserverUrl, workspace }) {
   const [connectionActive, setConnectionActive] = useState(false);
-  // IMPORTANT: Use the correct URL format with /wastewater/wms
   const [url, setUrl] = useState('http://localhost:8080/geoserver/wastewater/wms');
   const [ws, setWs] = useState(workspace || 'wastewater');
 
   useEffect(() => {
     if (geoserverUrl) {
-      // Ensure the URL has the correct format
       let baseUrl = geoserverUrl;
       if (!baseUrl.includes('/wastewater/wms')) {
         baseUrl = baseUrl.replace(/\/wms$/, '/wastewater/wms');
@@ -217,7 +215,7 @@ function GeoServerLayers({ geoserverUrl, workspace }) {
         }
       } catch (err) {
         console.warn('No active GeoServer connection, using default', err);
-        setConnectionActive(true); // Still try with default URL
+        setConnectionActive(true);
       }
     };
     
@@ -225,9 +223,6 @@ function GeoServerLayers({ geoserverUrl, workspace }) {
   }, [geoserverUrl, workspace]);
 
   if (!connectionActive) return null;
-
-  console.log('GeoServer WMS URL:', url);
-  console.log('Workspace:', ws);
 
   return (
     <LayersControl position="topright">
@@ -289,7 +284,14 @@ export default function MapView({
 
   const buildTable = (rows) => (
     <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
-      <tbody>{rows.filter(Boolean).map(([k, v]) => (<tr key={k}><td style={{ padding: "3px 8px 3px 0", color: "#555", fontWeight: 600 }}>{k}</td><td style={{ padding: "3px 0", color: "#111" }}>{v}</td></td>))}</tbody>
+      <tbody>
+        {rows.filter(Boolean).map(([k, v]) => (
+          <tr key={k}>
+            <td style={{ padding: "3px 8px 3px 0", color: "#555", fontWeight: 600 }}>{k}</td>
+            <td style={{ padding: "3px 0", color: "#111" }}>{v}</td>
+          </tr>
+        ))}
+      </tbody>
     </table>
   );
 
