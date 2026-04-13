@@ -178,15 +178,24 @@ function TileSelector({ activeTiles, setActiveTiles }) {
   );
 }
 
-// ── GeoServer Connection Component
+// ── GeoServer Connection Component (FIXED URL)
 function GeoServerLayers({ geoserverUrl, workspace }) {
   const [connectionActive, setConnectionActive] = useState(false);
-  const [url, setUrl] = useState(geoserverUrl || 'http://localhost:8080/geoserver/wms');
+  // IMPORTANT: Use the correct URL format with /wastewater/wms
+  const [url, setUrl] = useState('http://localhost:8080/geoserver/wastewater/wms');
   const [ws, setWs] = useState(workspace || 'wastewater');
 
   useEffect(() => {
     if (geoserverUrl) {
-      setUrl(geoserverUrl);
+      // Ensure the URL has the correct format
+      let baseUrl = geoserverUrl;
+      if (!baseUrl.includes('/wastewater/wms')) {
+        baseUrl = baseUrl.replace(/\/wms$/, '/wastewater/wms');
+        if (!baseUrl.includes('/wastewater/wms')) {
+          baseUrl = `${baseUrl}/wastewater/wms`;
+        }
+      }
+      setUrl(baseUrl);
       setConnectionActive(true);
       return;
     }
@@ -195,13 +204,20 @@ function GeoServerLayers({ geoserverUrl, workspace }) {
       try {
         const res = await api.get('/connections/active');
         if (res.data && res.data.geoserver_url) {
-          setUrl(res.data.geoserver_url);
+          let baseUrl = res.data.geoserver_url;
+          if (!baseUrl.includes('/wastewater/wms')) {
+            baseUrl = baseUrl.replace(/\/wms$/, '/wastewater/wms');
+            if (!baseUrl.includes('/wastewater/wms')) {
+              baseUrl = `${baseUrl}/wastewater/wms`;
+            }
+          }
+          setUrl(baseUrl);
           setWs(res.data.workspace || 'wastewater');
           setConnectionActive(true);
         }
       } catch (err) {
-        console.warn('No active GeoServer connection', err);
-        setConnectionActive(false);
+        console.warn('No active GeoServer connection, using default', err);
+        setConnectionActive(true); // Still try with default URL
       }
     };
     
@@ -209,6 +225,9 @@ function GeoServerLayers({ geoserverUrl, workspace }) {
   }, [geoserverUrl, workspace]);
 
   if (!connectionActive) return null;
+
+  console.log('GeoServer WMS URL:', url);
+  console.log('Workspace:', ws);
 
   return (
     <LayersControl position="topright">
@@ -219,7 +238,8 @@ function GeoServerLayers({ geoserverUrl, workspace }) {
           format="image/png"
           transparent={true}
           opacity={0.7}
-          version="1.3.0"
+          version="1.1.0"
+          srs="EPSG:4326"
         />
       </LayersControl.Overlay>
       <LayersControl.Overlay name="📏 Pipelines (GeoServer)">
@@ -229,7 +249,8 @@ function GeoServerLayers({ geoserverUrl, workspace }) {
           format="image/png"
           transparent={true}
           opacity={0.7}
-          version="1.3.0"
+          version="1.1.0"
+          srs="EPSG:4326"
         />
       </LayersControl.Overlay>
       <LayersControl.Overlay name="🏘️ Suburbs (GeoServer)">
@@ -239,7 +260,8 @@ function GeoServerLayers({ geoserverUrl, workspace }) {
           format="image/png"
           transparent={true}
           opacity={0.5}
-          version="1.3.0"
+          version="1.1.0"
+          srs="EPSG:4326"
         />
       </LayersControl.Overlay>
     </LayersControl>
@@ -267,7 +289,7 @@ export default function MapView({
 
   const buildTable = (rows) => (
     <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
-      <tbody>{rows.filter(Boolean).map(([k, v]) => (<tr key={k}><td style={{ padding: "3px 8px 3px 0", color: "#555", fontWeight: 600 }}>{k}</td><td style={{ padding: "3px 0", color: "#111" }}>{v}</td></tr>))}</tbody>
+      <tbody>{rows.filter(Boolean).map(([k, v]) => (<tr key={k}><td style={{ padding: "3px 8px 3px 0", color: "#555", fontWeight: 600 }}>{k}</td><td style={{ padding: "3px 0", color: "#111" }}>{v}</td></td>))}</tbody>
     </table>
   );
 
