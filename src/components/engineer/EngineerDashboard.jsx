@@ -1,12 +1,11 @@
 // src/components/engineer/EngineerDashboard.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import api from "../../api/api"; // adjust path
+import api from "../../api/api";
 import MapView from '../MapView';
 import DataEditor from './DataEditor';
 import ShapefileUploader from './ShapefileUploader';
 import DataSync from './DataSync';
 import FlagManager from './FlagManager';
-// import NavigationTool from './NavigationTool';   // removed
 import HomePanel from './HomePanel';
 import ProfilePanel from './ProfilePanel';
 import SettingsPanel from './SettingsPanel';
@@ -14,6 +13,8 @@ import FormBuilder from './FormBuilder';
 import FormList from './FormList';
 import SubmissionsList from './SubmissionsList';
 import PendingEdits from './PendingEdits';
+import ConnectionsPanel from './ConnectionsPanel';     // NEW
+import AnalyticsDashboard from './AnalyticsDashboard'; // NEW
 import './Dashboard.css';
 
 export default function EngineerDashboard({ manholes, pipes, userId, role, onDataRefresh, userProfile }) {
@@ -27,7 +28,6 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
   useEffect(() => { fetchPendingCount(); }, []);
   const fetchPendingCount = async () => {
     try {
-      // Expect backend to return an array of pending edits; we just need the count
       const res = await api.get('/asset-edits?status=pending');
       setPendingEditCount(res.data.length ?? 0);
     } catch (err) {
@@ -56,9 +56,11 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
     onDataRefresh();
   };
 
-  // Tool rail definitions – no navigation tool
+  // Tool rail definitions – added Connections and Analytics
   const tools = [
     { id: 'home',        icon: '🏠', label: 'Home',        color: '#4aad4a', desc: 'Overview & stats' },
+    { id: 'connections', icon: '🔌', label: 'Connections', color: '#22d3ee', desc: 'Manage DB & GeoServer' }, // NEW
+    { id: 'analytics',   icon: '📊', label: 'Analytics',   color: '#f59e0b', desc: 'Reports & KPIs' },        // NEW
     { id: 'editor',      icon: '✏️', label: 'Edit',        color: '#8fdc00', desc: 'Edit manhole/pipeline' },
     { id: 'uploader',    icon: '📤', label: 'Upload',      color: '#4aad4a', desc: 'Import shapefile' },
     { id: 'sync',        icon: '🔄', label: 'Sync',        color: '#22d3ee', desc: 'Push / pull data' },
@@ -87,7 +89,6 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
           <div className="wd-chip"><span className="dot dot-green" />{manholes?.length ?? 0} Manholes</div>
           <div className="wd-chip"><span className="dot dot-lime"  />{pipes?.length    ?? 0} Pipelines</div>
           <div className="wd-chip"><span className="dot dot-amber" />Live</div>
-          {/* Removed navPickMode chip */}
         </div>
 
         <div className="wd-topbar-actions">
@@ -108,7 +109,6 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
           userId={userId}
           onFeatureClick={handleFeatureClick}
           onMapReady={setMapInstance}
-          // Removed navPickMode and onNavMapClick props
         />
       </div>
 
@@ -116,35 +116,30 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
       <nav className="wd-rail">
         {tools.map((t, i) => (
           <React.Fragment key={t.id}>
-            {i === 1 && <div className="wd-rail-sep" />}  {/* separator after home, now after first tool */}
+            {i === 2 && <div className="wd-rail-sep" />}  {/* separator after Analytics */}
             <button
               className={`wd-rail-btn${activePanel === t.id ? ' active' : ''}`}
               style={{ '--rail-color': t.color }}
               onClick={() => toggle(t.id)}
               title={`${t.label} — ${t.desc}`}
             >
-              {/* Badge for pending count */}
-              {t.badge > 0 && (
-                <span className="wd-rail-badge">{t.badge > 99 ? '99+' : t.badge}</span>
-              )}
-              {/* Icon */}
+              {t.badge > 0 && <span className="wd-rail-badge">{t.badge > 99 ? '99+' : t.badge}</span>}
               <span style={{ fontSize: 16, lineHeight: 1, display: 'block' }}>{t.icon}</span>
-              {/* Label */}
               <span style={{
-                display:        'block',
-                fontFamily:     'var(--font-display)',
-                fontSize:       7,
-                fontWeight:     700,
-                letterSpacing:  '0.06em',
-                textTransform:  'uppercase',
-                color:          activePanel === t.id ? 'var(--text-pri)' : 'var(--text-dim)',
-                marginTop:      1,
-                lineHeight:     1,
-                textAlign:      'center',
-                whiteSpace:     'nowrap',
-                overflow:       'hidden',
-                maxWidth:       '42px',
-                textOverflow:   'ellipsis',
+                display: 'block',
+                fontFamily: 'var(--font-display)',
+                fontSize: 7,
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: activePanel === t.id ? 'var(--text-pri)' : 'var(--text-dim)',
+                marginTop: 1,
+                lineHeight: 1,
+                textAlign: 'center',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                maxWidth: '42px',
+                textOverflow: 'ellipsis',
               }}>
                 {t.label}
               </span>
@@ -160,6 +155,14 @@ export default function EngineerDashboard({ manholes, pipes, userId, role, onDat
           onClose={() => setActivePanel(null)}
           onNavigate={toggle}
         />
+      )}
+
+      {activePanel === 'connections' && (
+        <ConnectionsPanel onClose={() => setActivePanel(null)} onConnectionActivated={() => window.location.reload()} />
+      )}
+
+      {activePanel === 'analytics' && (
+        <AnalyticsDashboard onClose={() => setActivePanel(null)} />
       )}
 
       {activePanel === 'editor' && (
