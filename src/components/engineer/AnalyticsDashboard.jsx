@@ -4,7 +4,7 @@ import {
     BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import api from '../../api';
+import api from '../../api/api';
 
 export default function AnalyticsDashboard({ onClose }) {
     const [counts, setCounts] = useState({ manholes: 0, pipelines: 0, suburbs: 0 });
