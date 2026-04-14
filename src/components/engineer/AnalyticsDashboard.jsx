@@ -1,395 +1,331 @@
-// src/components/engineer/EngineerDashboard.jsx
+// src/components/engineer/AnalyticsDashboard.jsx
 import React, { useState, useEffect } from 'react';
-import api from "../../api/api";
-import MapView from '../MapView';
-import ConnectionsPanel from './ConnectionsPanel';
-import AnalyticsDashboard from './AnalyticsDashboard';
-import DataEditor from './DataEditor';
-import ShapefileUploader from './ShapefileUploader';
-import DataSync from './DataSync';
-import FlagManager from './FlagManager';
-import FormList from './FormList';
-import FormBuilder from './FormBuilder';
-import SubmissionsList from './SubmissionsList';
-import PendingEdits from './PendingEdits';
-import HomePanel from './HomePanel';
-import ProfilePanel from './ProfilePanel';
-import SettingsPanel from './SettingsPanel';
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
+import api from '../../api/api';
 
-// Import new containers
-import DrawerDownload from '../../containers/DrawerDownload';
-import DrawerUpload from '../../containers/DrawerUpload';
-import DrawerMap from '../../containers/DrawerMap';
-import DrawerEntry from '../../containers/DrawerEntry';
-import ModalDeleteEntry from '../../containers/ModalDeleteEntry';
-import ModalViewEntry from '../../containers/ModalViewEntry';
-import WaitOverlay from '../../containers/WaitOverlay';
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-export default function EngineerDashboard({ user, onLogout }) {
-  const userId = user?.id;
-  const role = user?.role || 'engineer';
-  const userProfile = user;
-
-  const [activeTab, setActiveTab] = useState('home');
-  const [selectedFeature, setFeature] = useState(null);
-  const [selectedForm, setSelectedForm] = useState(null);
-  const [manholes, setManholes] = useState([]);
-  const [pipes, setPipelines] = useState([]);
+export default function AnalyticsDashboard({ onClose }) {
   const [loading, setLoading] = useState(true);
-  const [connectionActive, setConnectionActive] = useState(false);
-  const [pendingEditCount, setPendingEditCount] = useState(0);
+  const [activeReport, setActiveReport] = useState('overview'); // overview, maintenance, flags, operator
 
-  // New state for drawers and modals
-  const [drawerOpen, setDrawerOpen] = useState(null); // 'download', 'upload', 'map', 'entry'
-  const [selectedEntry, setSelectedEntry] = useState(null);
-  const [modalDelete, setModalDelete] = useState({ isOpen: false, entryUuid: null, entryTitle: '' });
-  const [modalView, setModalView] = useState({ isOpen: false, headers: [], answers: [], entryTitle: '' });
-  const [isLoading, setIsLoading] = useState(false);
+  // Data states
+  const [counts, setCounts] = useState({ manholes: 0, pipelines: 0, suburbs: 0 });
+  const [maintenanceStats, setMaintenanceStats] = useState([]);
+  const [assetEditsStats, setAssetEditsStats] = useState([]);
+  const [operatorActivity, setOperatorActivity] = useState([]);
+  const [resolutionTime, setResolutionTime] = useState(null);
+  const [flagHotspots, setFlagHotspots] = useState([]);
+  const [maintenanceRecords, setMaintenanceRecords] = useState([]);
+  const [dailyReports, setDailyReports] = useState([]);
+  const [weeklyReports, setWeeklyReports] = useState([]);
+  const [monthlyReports, setMonthlyReports] = useState([]);
+  const [reportPeriod, setReportPeriod] = useState('daily');
+  const [filters, setFilters] = useState({ status: '', feature_type: '', start_date: '', end_date: '' });
 
+  // Fetch all data
   useEffect(() => {
-    checkConnection();
-    fetchPendingCount();
+    fetchAllData();
   }, []);
 
-  useEffect(() => {
-    if (connectionActive) fetchData();
-  }, [connectionActive]);
-
-  const fetchPendingCount = async () => {
-    try {
-      const res = await api.get('/asset-edits?status=pending');
-      setPendingEditCount(res.data.length ?? 0);
-    } catch {
-      setPendingEditCount(0);
-    }
-  };
-
-  const fetchData = async () => {
+  const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [manholesRes, pipelinesRes] = await Promise.all([
-        api.get('/manholes'),
-        api.get('/pipelines')
+      const [
+        countsRes,
+        maintRes,
+        editsRes,
+        activityRes,
+        timeRes,
+        hotspotsRes,
+        recordsRes,
+        dailyRes,
+        weeklyRes,
+        monthlyRes
+      ] = await Promise.all([
+        api.get('/analytics/counts'),
+        api.get('/analytics/maintenance-stats'),
+        api.get('/analytics/asset-edits-stats'),
+        api.get('/analytics/operator-activity'),
+        api.get('/analytics/resolution-time'),
+        api.get('/analytics/flag-hotspots'),
+        api.get('/analytics/maintenance-records', { params: filters }),
+        api.get('/analytics/daily-reports'),
+        api.get('/analytics/weekly-reports'),
+        api.get('/analytics/monthly-reports')
       ]);
-      setManholes(manholesRes.data || []);
-      setPipelines(pipelinesRes.data || []);
+
+      setCounts(countsRes.data);
+      setMaintenanceStats(maintRes.data);
+      setAssetEditsStats(editsRes.data);
+      setOperatorActivity(activityRes.data);
+      setResolutionTime(timeRes.data.avg_hours);
+      setFlagHotspots(hotspotsRes.data);
+      setMaintenanceRecords(recordsRes.data);
+      setDailyReports(dailyRes.data);
+      setWeeklyReports(weeklyRes.data);
+      setMonthlyReports(monthlyRes.data);
     } catch (err) {
-      if (err.response?.status === 503) setConnectionActive(false);
+      console.error('Error fetching analytics data', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const checkConnection = async () => {
-    try {
-      await api.get('/connections/active');
-      setConnectionActive(true);
-    } catch {
-      setConnectionActive(false);
+  const applyFilters = () => fetchAllData();
+  const handleFilterChange = (e) => setFilters({ ...filters, [e.target.name]: e.target.value });
+
+  const getReportData = () => {
+    switch (reportPeriod) {
+      case 'daily': return dailyReports;
+      case 'weekly': return weeklyReports;
+      case 'monthly': return monthlyReports;
+      default: return dailyReports;
     }
   };
 
-  const handleDataRefresh = () => {
-    fetchData();
-    fetchPendingCount();
-  };
-
-  const handleConnectionActivated = () => {
-    checkConnection();
-    fetchData();
-  };
-
-  // Handlers for drawers and modals
-  const handleDownload = async (format, includeMedia) => {
-    setIsLoading(true);
-    try {
-      // Build download URL with current filters (you need to manage filters state)
-      const params = new URLSearchParams({ format, include_media: includeMedia });
-      // You may also pass date range, etc.
-      const response = await api.get(`/analytics/export?${params.toString()}`, {
-        responseType: 'blob',
-      });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `wastewater_export.${format}`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Download failed', error);
-    } finally {
-      setIsLoading(false);
-      setDrawerOpen(null);
-    }
-  };
-
-  const handleUpload = async (file) => {
-    setIsLoading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    try {
-      await api.post('/upload/bulk', formData);
-      handleDataRefresh(); // refresh submissions list
-    } catch (error) {
-      console.error('Upload failed', error);
-    } finally {
-      setIsLoading(false);
-      setDrawerOpen(null);
-    }
-  };
-
-  const handleViewEntry = (headers, answers, entryTitle) => {
-    setModalView({ isOpen: true, headers, answers, entryTitle });
-  };
-
-  const handleDeleteEntry = (entryUuid, entryTitle) => {
-    setModalDelete({ isOpen: true, entryUuid, entryTitle });
-  };
-
-  const confirmDelete = async () => {
-    const { entryUuid } = modalDelete;
-    try {
-      await api.delete(`/submissions/${entryUuid}`);
-      handleDataRefresh();
-      setModalDelete({ isOpen: false, entryUuid: null, entryTitle: '' });
-    } catch (error) {
-      console.error('Delete failed', error);
-    }
-  };
-
-  const handleEditEntry = (entryUuid) => {
-    // Implement edit logic (e.g., open a drawer or navigate)
-    console.log('Edit entry', entryUuid);
-  };
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'home':
-        return <HomePanel manholes={manholes} pipes={pipes} onNavigate={setActiveTab} onClose={() => {}} />;
-      case 'connections':
-        return <ConnectionsPanel onClose={() => setActiveTab('home')} onConnectionActivated={handleConnectionActivated} />;
-      case 'analytics':
-        return <AnalyticsDashboard onClose={() => setActiveTab('home')} />;
-      case 'editor':
-        return <DataEditor feature={selectedFeature} onSave={() => { setActiveTab('home'); handleDataRefresh(); }} onCancel={() => setActiveTab('home')} />;
-      case 'uploader':
-        return <ShapefileUploader onUploadComplete={handleDataRefresh} onClose={() => setActiveTab('home')} />;
-      case 'sync':
-        return <DataSync userId={userId} onSyncComplete={handleDataRefresh} onClose={() => setActiveTab('home')} />;
-      case 'flags':
-        return <FlagManager onFlagManaged={handleDataRefresh} onClose={() => setActiveTab('home')} />;
-      case 'forms':
-        return !selectedForm ? (
-          <FormList onSelectForm={setSelectedForm} onClose={() => setActiveTab('home')} onCreateNew={() => setSelectedForm({})} />
-        ) : (
-          <FormBuilder form={selectedForm} onSaved={() => { setSelectedForm(null); handleDataRefresh(); }} onCancel={() => setSelectedForm(null)} />
-        );
-      case 'submissions':
-        return (
-          <SubmissionsList
-            onClose={() => setActiveTab('home')}
-            onRefresh={handleDataRefresh}
-            onViewEntry={handleViewEntry}
-            onDeleteEntry={handleDeleteEntry}
-            onEditEntry={handleEditEntry}
-            onOpenDrawer={setDrawerOpen}
-          />
-        );
-      case 'edits':
-        return <PendingEdits onClose={() => setActiveTab('home')} onEditProcessed={() => { fetchPendingCount(); handleDataRefresh(); }} />;
-      case 'profile':
-        return <ProfilePanel userId={userId} role={role} userProfile={userProfile} onClose={() => setActiveTab('home')} onLogout={onLogout} />;
-      case 'settings':
-        return <SettingsPanel onClose={() => setActiveTab('home')} />;
-      default:
-        return <HomePanel manholes={manholes} pipes={pipes} onNavigate={setActiveTab} onClose={() => {}} />;
-    }
-  };
-
-  // Inline styles (unchanged)
   const styles = {
-    root: {
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      width: '100vw',
-      overflow: 'hidden',
-      fontFamily: 'system-ui, -apple-system, sans-serif'
-    },
-    topbar: {
-      background: 'white',
-      borderBottom: '1px solid #ddd',
-      padding: '0 1.5rem',
-      height: '60px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-      zIndex: 10
-    },
-    mainLayout: {
-      display: 'flex',
-      flex: 1,
-      overflow: 'hidden'
-    },
-    mapContainer: {
-      flex: 2,
-      position: 'relative',
-      background: '#e9ecef'
-    },
-    panelContainer: {
-      flex: 1,
-      minWidth: '380px',
-      maxWidth: '480px',
-      background: 'white',
-      borderLeft: '1px solid #ddd',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden'
-    },
-    tabBar: {
-      display: 'flex',
-      background: '#f8fafc',
-      borderBottom: '1px solid #ddd',
-      padding: '0.5rem 0.75rem 0',
-      gap: '0.25rem',
-      overflowX: 'auto'
-    },
-    tab: {
-      padding: '0.5rem 1rem',
-      background: 'white',
-      border: '1px solid #ddd',
-      borderBottom: 'none',
-      borderRadius: '8px 8px 0 0',
-      fontSize: '0.85rem',
-      fontWeight: 500,
-      color: '#6c757d',
-      cursor: 'pointer',
-      whiteSpace: 'nowrap',
-      transition: 'all 0.2s'
-    },
-    activeTab: {
-      color: '#2c7da0',
-      borderColor: '#2c7da0',
-      borderBottomColor: 'white',
-      background: 'white',
-      position: 'relative',
-      zIndex: 1
-    },
-    panelContent: {
-      flex: 1,
-      overflowY: 'auto',
-      padding: '1.25rem'
-    },
-    badge: {
-      background: '#e76f51',
-      color: 'white',
+    container: {
+      position: 'absolute',
+      top: '80px',
+      right: '20px',
+      width: '90vw',
+      maxWidth: '1200px',
+      maxHeight: 'calc(100vh - 100px)',
+      backgroundColor: 'white',
       borderRadius: '12px',
-      padding: '0.1rem 0.4rem',
-      fontSize: '0.7rem',
-      marginLeft: '0.3rem'
-    }
+      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      zIndex: 1000,
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+    },
+    header: {
+      padding: '1rem',
+      backgroundColor: '#f59e0b',
+      color: 'white',
+      fontWeight: 'bold',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    closeBtn: { background: 'none', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' },
+    content: { padding: '1rem', overflowY: 'auto', flex: 1 },
+    kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' },
+    kpiCard: { backgroundColor: '#f8f9fa', padding: '1rem', borderRadius: '8px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' },
+    filterBar: { display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' },
+    filterInput: { padding: '0.5rem', borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.85rem' },
+    dataTable: { width: '100%', borderCollapse: 'collapse', marginTop: '1rem' },
+    tableHeader: { backgroundColor: '#f0f0f0', padding: '0.5rem', textAlign: 'left', borderBottom: '1px solid #ddd' },
+    tableCell: { padding: '0.5rem', borderBottom: '1px solid #eee' },
+    tabBar: { display: 'flex', gap: '0.5rem', marginBottom: '1rem', borderBottom: '1px solid #ddd', paddingBottom: '0.5rem' },
+    tab: { padding: '0.5rem 1rem', cursor: 'pointer', borderRadius: '4px', backgroundColor: '#f0f0f0', border: 'none' },
+    activeTab: { backgroundColor: '#f59e0b', color: 'white' },
   };
+
+  if (loading) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.header}>
+          <span>📊 Analytics Dashboard</span>
+          <button style={styles.closeBtn} onClick={onClose}>×</button>
+        </div>
+        <div style={styles.content}>Loading analytics data...</div>
+      </div>
+    );
+  }
 
   return (
-    <div style={styles.root}>
-      {/* TOP BAR (unchanged) */}
-      <header style={styles.topbar}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '1.8rem' }}>🪣</span>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '1.2rem', color: '#2c7da0' }}>WWGIS</div>
-            <div style={{ fontSize: '0.7rem', color: '#6c757d' }}>Engineer Dashboard</div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <div style={{ background: '#eef2f5', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem' }}>
-            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#2a9d8f', marginRight: '0.4rem' }}></span>
-            {manholes?.length ?? 0} Manholes
-          </div>
-          <div style={{ background: '#eef2f5', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem' }}>
-            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#a7c957', marginRight: '0.4rem' }}></span>
-            {pipes?.length ?? 0} Pipelines
-          </div>
-          <div style={{ background: '#eef2f5', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem' }}>
-            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: connectionActive ? '#2a9d8f' : '#e76f51', marginRight: '0.4rem' }}></span>
-            {connectionActive ? 'Connected' : 'No DB'}
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }} onClick={() => setActiveTab('profile')}>👤</button>
-          <button style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }} onClick={() => setActiveTab('settings')}>⚙️</button>
-          <button style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }} onClick={onLogout}>⎋</button>
-          <div style={{ background: '#2c7da0', color: 'white', padding: '0.2rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem' }}>{role}</div>
-        </div>
-      </header>
-
-      {/* MAIN LAYOUT */}
-      <div style={styles.mainLayout}>
-        {/* MAP */}
-        <div style={styles.mapContainer}>
-          <MapView
-            manholes={manholes}
-            pipes={pipes}
-            role={role}
-            userId={userId}
-            onFeatureClick={(f) => { setFeature(f); setActiveTab('editor'); }}
-          />
-        </div>
-
-        {/* RIGHT PANEL WITH TABS */}
-        <div style={styles.panelContainer}>
-          <div style={styles.tabBar}>
-            <button style={{ ...styles.tab, ...(activeTab === 'home' ? styles.activeTab : {}) }} onClick={() => setActiveTab('home')}>🏠 Home</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'connections' ? styles.activeTab : {}) }} onClick={() => setActiveTab('connections')}>🔌 Connections</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'analytics' ? styles.activeTab : {}) }} onClick={() => setActiveTab('analytics')}>📊 Analytics</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'forms' ? styles.activeTab : {}) }} onClick={() => setActiveTab('forms')}>📝 Forms</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'submissions' ? styles.activeTab : {}) }} onClick={() => setActiveTab('submissions')}>📋 Submissions</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'edits' ? styles.activeTab : {}) }} onClick={() => setActiveTab('edits')}>
-              ✏️ Edits {pendingEditCount > 0 && <span style={styles.badge}>{pendingEditCount}</span>}
-            </button>
-            <button style={{ ...styles.tab, ...(activeTab === 'flags' ? styles.activeTab : {}) }} onClick={() => setActiveTab('flags')}>🚩 Flags</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'uploader' ? styles.activeTab : {}) }} onClick={() => setActiveTab('uploader')}>📤 Upload</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'sync' ? styles.activeTab : {}) }} onClick={() => setActiveTab('sync')}>🔄 Sync</button>
-          </div>
-          <div style={styles.panelContent}>
-            {loading && activeTab === 'home' ? <div>Loading data...</div> : renderContent()}
-          </div>
-        </div>
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <span>📊 Analytics Dashboard</span>
+        <button style={styles.closeBtn} onClick={onClose}>×</button>
       </div>
+      <div style={styles.content}>
+        {/* Tab Bar */}
+        <div style={styles.tabBar}>
+          <button style={{ ...styles.tab, ...(activeReport === 'overview' ? styles.activeTab : {}) }} onClick={() => setActiveReport('overview')}>Overview</button>
+          <button style={{ ...styles.tab, ...(activeReport === 'maintenance' ? styles.activeTab : {}) }} onClick={() => setActiveReport('maintenance')}>Maintenance</button>
+          <button style={{ ...styles.tab, ...(activeReport === 'flags' ? styles.activeTab : {}) }} onClick={() => setActiveReport('flags')}>Flags</button>
+          <button style={{ ...styles.tab, ...(activeReport === 'operator' ? styles.activeTab : {}) }} onClick={() => setActiveReport('operator')}>Operator Activity</button>
+          <button style={{ ...styles.tab, ...(activeReport === 'reports' ? styles.activeTab : {}) }} onClick={() => setActiveReport('reports')}>Periodic Reports</button>
+        </div>
 
-      {/* Drawers and Modals */}
-      {drawerOpen === 'download' && (
-        <DrawerDownload onClose={() => setDrawerOpen(null)} onDownload={handleDownload} />
-      )}
-      {drawerOpen === 'upload' && (
-        <DrawerUpload onClose={() => setDrawerOpen(null)} onUpload={handleUpload} />
-      )}
-      {drawerOpen === 'map' && selectedEntry && (
-        <DrawerMap entries={[selectedEntry]} onClose={() => setDrawerOpen(null)} />
-      )}
-      {drawerOpen === 'entry' && selectedEntry && (
-        <DrawerEntry entry={selectedEntry} onClose={() => setDrawerOpen(null)} />
-      )}
+        {/* Overview Tab */}
+        {activeReport === 'overview' && (
+          <>
+            <div style={styles.kpiGrid}>
+              <div style={styles.kpiCard}><h3>Manholes</h3><p style={{ fontSize: '2rem', fontWeight: 'bold' }}>{counts.manholes}</p></div>
+              <div style={styles.kpiCard}><h3>Pipelines</h3><p style={{ fontSize: '2rem', fontWeight: 'bold' }}>{counts.pipelines}</p></div>
+              <div style={styles.kpiCard}><h3>Suburbs</h3><p style={{ fontSize: '2rem', fontWeight: 'bold' }}>{counts.suburbs}</p></div>
+              <div style={styles.kpiCard}><h3>Avg Resolution Time</h3><p style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{resolutionTime} hrs</p></div>
+            </div>
 
-      <ModalDeleteEntry
-        isOpen={modalDelete.isOpen}
-        onClose={() => setModalDelete({ isOpen: false, entryUuid: null, entryTitle: '' })}
-        onConfirm={confirmDelete}
-        entryTitle={modalDelete.entryTitle}
-      />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+              <div>
+                <h3>Maintenance Requests by Status</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={maintenanceStats} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={80} label>
+                      {maintenanceStats.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div>
+                <h3>Asset Edits by Status</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={assetEditsStats} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={80} label>
+                      {assetEditsStats.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
-      <ModalViewEntry
-        isOpen={modalView.isOpen}
-        onClose={() => setModalView({ isOpen: false, headers: [], answers: [], entryTitle: '' })}
-        headers={modalView.headers}
-        answers={modalView.answers}
-        entryTitle={modalView.entryTitle}
-      />
+            <div style={{ marginBottom: '2rem' }}>
+              <h3>Operator Activity (Last 30 Days)</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={operatorActivity}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="count" stroke="#8884d8" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        )}
 
-      <WaitOverlay isVisible={isLoading} message="Processing..." />
+        {/* Maintenance Tab */}
+        {activeReport === 'maintenance' && (
+          <div>
+            <h3>Maintenance Records</h3>
+            <div style={styles.filterBar}>
+              <input style={styles.filterInput} type="text" name="status" placeholder="Status" value={filters.status} onChange={handleFilterChange} />
+              <input style={styles.filterInput} type="text" name="feature_type" placeholder="Feature type" value={filters.feature_type} onChange={handleFilterChange} />
+              <input style={styles.filterInput} type="date" name="start_date" value={filters.start_date} onChange={handleFilterChange} />
+              <input style={styles.filterInput} type="date" name="end_date" value={filters.end_date} onChange={handleFilterChange} />
+              <button style={{ ...styles.filterInput, backgroundColor: '#4caf50', color: 'white', cursor: 'pointer' }} onClick={applyFilters}>Apply</button>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={styles.dataTable}>
+                <thead>
+                  <tr>
+                    <th style={styles.tableHeader}>ID</th>
+                    <th style={styles.tableHeader}>Type</th>
+                    <th style={styles.tableHeader}>Feature ID</th>
+                    <th style={styles.tableHeader}>Maintenance Type</th>
+                    <th style={styles.tableHeader}>Status</th>
+                    <th style={styles.tableHeader}>Created At</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {maintenanceRecords.map(rec => (
+                    <tr key={rec.id}>
+                      <td style={styles.tableCell}>{rec.id}</td>
+                      <td style={styles.tableCell}>{rec.feature_type}</td>
+                      <td style={styles.tableCell}>{rec.feature_id}</td>
+                      <td style={styles.tableCell}>{rec.maintenance_type}</td>
+                      <td style={styles.tableCell}>{rec.status}</td>
+                      <td style={styles.tableCell}>{new Date(rec.created_at).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  {maintenanceRecords.length === 0 && <tr><td colSpan="6" style={styles.tableCell}>No records found</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Flags Tab */}
+        {activeReport === 'flags' && (
+          <div>
+            <h3>Flag Hotspots</h3>
+            <table style={styles.dataTable}>
+              <thead>
+                <tr><th style={styles.tableHeader}>Suburb</th><th style={styles.tableHeader}>Feature ID</th><th style={styles.tableHeader}>Flag Count</th></tr>
+              </thead>
+              <tbody>
+                {flagHotspots.map((h, i) => (
+                  <tr key={i}><td style={styles.tableCell}>{h.suburb}</td><td style={styles.tableCell}>{h.feature_id}</td><td style={styles.tableCell}>{h.flag_count}</td></tr>
+                ))}
+                {flagHotspots.length === 0 && <tr><td colSpan="3" style={styles.tableCell}>No flags reported</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Operator Activity Tab */}
+        {activeReport === 'operator' && (
+          <div>
+            <h3>Operator Job Logs</h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={styles.dataTable}>
+                <thead>
+                  <tr>
+                    <th style={styles.tableHeader}>Timestamp</th>
+                    <th style={styles.tableHeader}>Operator</th>
+                    <th style={styles.tableHeader}>Action</th>
+                    <th style={styles.tableHeader}>Feature Type</th>
+                    <th style={styles.tableHeader}>Feature ID</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {operatorActivity.map((log, idx) => (
+                    <tr key={idx}>
+                      <td style={styles.tableCell}>{log.day || '—'}</td>
+                      <td style={styles.tableCell}>{log.operator_name || '—'}</td>
+                      <td style={styles.tableCell}>{log.action_type || '—'}</td>
+                      <td style={styles.tableCell}>{log.feature_type || '—'}</td>
+                      <td style={styles.tableCell}>{log.feature_id || '—'}</td>
+                    </tr>
+                  ))}
+                  {operatorActivity.length === 0 && <tr><td colSpan="5" style={styles.tableCell}>No activity logs found</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Periodic Reports Tab */}
+        {activeReport === 'reports' && (
+          <div>
+            <h3>Periodic Reports</h3>
+            <div style={styles.filterBar}>
+              <button style={{ ...styles.tab, ...(reportPeriod === 'daily' ? styles.activeTab : {}) }} onClick={() => setReportPeriod('daily')}>Daily</button>
+              <button style={{ ...styles.tab, ...(reportPeriod === 'weekly' ? styles.activeTab : {}) }} onClick={() => setReportPeriod('weekly')}>Weekly</button>
+              <button style={{ ...styles.tab, ...(reportPeriod === 'monthly' ? styles.activeTab : {}) }} onClick={() => setReportPeriod('monthly')}>Monthly</button>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={styles.dataTable}>
+                <thead>
+                  <tr><th style={styles.tableHeader}>Period</th><th style={styles.tableHeader}>Maintenance Requests</th><th style={styles.tableHeader}>Asset Edits</th><th style={styles.tableHeader}>Flags Reported</th></tr>
+                </thead>
+                <tbody>
+                  {getReportData().map(row => (
+                    <tr key={row.period}>
+                      <td style={styles.tableCell}>{row.period}</td>
+                      <td style={styles.tableCell}>{row.maintenance_count || 0}</td>
+                      <td style={styles.tableCell}>{row.asset_edits_count || 0}</td>
+                      <td style={styles.tableCell}>{row.flags_count || 0}</td>
+                    </tr>
+                  ))}
+                  {getReportData().length === 0 && <tr><td colSpan="4" style={styles.tableCell}>No data available</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
