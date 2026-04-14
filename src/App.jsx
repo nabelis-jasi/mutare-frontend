@@ -3,10 +3,6 @@ import React, { useState, useEffect } from "react";
 import api from "./api/api";
 import Splash from "./components/Splash";
 import RoleSelection from "./components/RoleSelection";
-
-// Role-based dashboards
-import CollectorDashboard from "./components/fieldCollector/CollectorDashboard";
-import OperatorDashboard from "./components/fieldOperator/OperatorDashboard";
 import EngineerDashboard from "./components/engineer/EngineerDashboard";
 
 export default function App() {
@@ -76,6 +72,23 @@ export default function App() {
     return <RoleSelection onSelectRole={handleRoleSelect} />;
   }
 
+  // Only engineer role is supported now
+  if (role !== "engineer") {
+    return (
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+        flexDirection: "column",
+        gap: "1rem"
+      }}>
+        <p>Only engineer dashboard is available in this version.</p>
+        <button onClick={() => setRole(null)}>Go back</button>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div style={{
@@ -98,37 +111,13 @@ export default function App() {
       backgroundColor: "#f0f2f5"
     }}>
       <main style={{ flex: 1, overflow: "hidden" }}>
-        
-        {role === "field-collector" && (
-          <CollectorDashboard
-            manholes={manholes}
-            pipes={pipes}
-            userId={userId}
-            role={role}
-            onDataRefresh={handleDataRefresh}
-          />
-        )}
-
-        {role === "field-operator" && (
-          <OperatorDashboard
-            manholes={manholes}
-            pipes={pipes}
-            userId={userId}
-            role={role}
-            onDataRefresh={handleDataRefresh}
-          />
-        )}
-
-        {role === "engineer" && (
-          <EngineerDashboard
-            manholes={manholes}
-            pipes={pipes}
-            userId={userId}
-            role={role}
-            onDataRefresh={handleDataRefresh}
-          />
-        )}
-
+        <EngineerDashboard
+          manholes={manholes}
+          pipes={pipes}
+          userId={userId}
+          role={role}
+          onDataRefresh={handleDataRefresh}
+        />
       </main>
     </div>
   );
