@@ -3,13 +3,13 @@ import React from 'react';
 import PropTypes from 'prop-types';
 
 // Import all possible cell renderers (adjust paths to your actual components)
-import CellBranch from '../containers/table/CellBranch';
-import CellChildren from '../containers/table/CellChildren';
+import CellBranch from '../../containers/table/CellBranch';
+import CellChildren from '../../containers/table/CellChildren';
 import CellMedia from './CellMedia';
 import CellText from './CellText';
-import CellView from '../containers/table/CellView';
-import CellDelete from '../containers/table/CellDelete';
-import CellEdit from '../containers/table/CellEdit';
+import CellView from '../../containers/table/CellView';
+import CellDelete from '../../containers/table/CellDelete';
+import CellEdit from '../../containers/table/CellEdit';
 
 /**
  * TableCell – dynamically renders the appropriate cell component based on `content.cellType`.
