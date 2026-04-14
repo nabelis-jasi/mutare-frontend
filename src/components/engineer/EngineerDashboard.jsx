@@ -16,6 +16,15 @@ import HomePanel from './HomePanel';
 import ProfilePanel from './ProfilePanel';
 import SettingsPanel from './SettingsPanel';
 
+// Import new containers
+import DrawerDownload from '../../containers/DrawerDownload';
+import DrawerUpload from '../../containers/DrawerUpload';
+import DrawerMap from '../../containers/DrawerMap';
+import DrawerEntry from '../../containers/DrawerEntry';
+import ModalDeleteEntry from '../../containers/ModalDeleteEntry';
+import ModalViewEntry from '../../containers/ModalViewEntry';
+import WaitOverlay from '../../containers/WaitOverlay';
+
 export default function EngineerDashboard({ user, onLogout }) {
   const userId = user?.id;
   const role = user?.role || 'engineer';
@@ -29,6 +38,13 @@ export default function EngineerDashboard({ user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [connectionActive, setConnectionActive] = useState(false);
   const [pendingEditCount, setPendingEditCount] = useState(0);
+
+  // New state for drawers and modals
+  const [drawerOpen, setDrawerOpen] = useState(null); // 'download', 'upload', 'map', 'entry'
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [modalDelete, setModalDelete] = useState({ isOpen: false, entryUuid: null, entryTitle: '' });
+  const [modalView, setModalView] = useState({ isOpen: false, headers: [], answers: [], entryTitle: '' });
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     checkConnection();
@@ -83,6 +99,71 @@ export default function EngineerDashboard({ user, onLogout }) {
     fetchData();
   };
 
+  // Handlers for drawers and modals
+  const handleDownload = async (format, includeMedia) => {
+    setIsLoading(true);
+    try {
+      // Build download URL with current filters (you need to manage filters state)
+      const params = new URLSearchParams({ format, include_media: includeMedia });
+      // You may also pass date range, etc.
+      const response = await api.get(`/analytics/export?${params.toString()}`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `wastewater_export.${format}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed', error);
+    } finally {
+      setIsLoading(false);
+      setDrawerOpen(null);
+    }
+  };
+
+  const handleUpload = async (file) => {
+    setIsLoading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      await api.post('/upload/bulk', formData);
+      handleDataRefresh(); // refresh submissions list
+    } catch (error) {
+      console.error('Upload failed', error);
+    } finally {
+      setIsLoading(false);
+      setDrawerOpen(null);
+    }
+  };
+
+  const handleViewEntry = (headers, answers, entryTitle) => {
+    setModalView({ isOpen: true, headers, answers, entryTitle });
+  };
+
+  const handleDeleteEntry = (entryUuid, entryTitle) => {
+    setModalDelete({ isOpen: true, entryUuid, entryTitle });
+  };
+
+  const confirmDelete = async () => {
+    const { entryUuid } = modalDelete;
+    try {
+      await api.delete(`/submissions/${entryUuid}`);
+      handleDataRefresh();
+      setModalDelete({ isOpen: false, entryUuid: null, entryTitle: '' });
+    } catch (error) {
+      console.error('Delete failed', error);
+    }
+  };
+
+  const handleEditEntry = (entryUuid) => {
+    // Implement edit logic (e.g., open a drawer or navigate)
+    console.log('Edit entry', entryUuid);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
@@ -106,7 +187,16 @@ export default function EngineerDashboard({ user, onLogout }) {
           <FormBuilder form={selectedForm} onSaved={() => { setSelectedForm(null); handleDataRefresh(); }} onCancel={() => setSelectedForm(null)} />
         );
       case 'submissions':
-        return <SubmissionsList onClose={() => setActiveTab('home')} onRefresh={handleDataRefresh} />;
+        return (
+          <SubmissionsList
+            onClose={() => setActiveTab('home')}
+            onRefresh={handleDataRefresh}
+            onViewEntry={handleViewEntry}
+            onDeleteEntry={handleDeleteEntry}
+            onEditEntry={handleEditEntry}
+            onOpenDrawer={setDrawerOpen}
+          />
+        );
       case 'edits':
         return <PendingEdits onClose={() => setActiveTab('home')} onEditProcessed={() => { fetchPendingCount(); handleDataRefresh(); }} />;
       case 'profile':
@@ -118,7 +208,7 @@ export default function EngineerDashboard({ user, onLogout }) {
     }
   };
 
-  // Inline styles
+  // Inline styles (unchanged)
   const styles = {
     root: {
       display: 'flex',
@@ -205,7 +295,7 @@ export default function EngineerDashboard({ user, onLogout }) {
 
   return (
     <div style={styles.root}>
-      {/* TOP BAR */}
+      {/* TOP BAR (unchanged) */}
       <header style={styles.topbar}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span style={{ fontSize: '1.8rem' }}>🪣</span>
@@ -269,6 +359,37 @@ export default function EngineerDashboard({ user, onLogout }) {
           </div>
         </div>
       </div>
+
+      {/* Drawers and Modals */}
+      {drawerOpen === 'download' && (
+        <DrawerDownload onClose={() => setDrawerOpen(null)} onDownload={handleDownload} />
+      )}
+      {drawerOpen === 'upload' && (
+        <DrawerUpload onClose={() => setDrawerOpen(null)} onUpload={handleUpload} />
+      )}
+      {drawerOpen === 'map' && selectedEntry && (
+        <DrawerMap entries={[selectedEntry]} onClose={() => setDrawerOpen(null)} />
+      )}
+      {drawerOpen === 'entry' && selectedEntry && (
+        <DrawerEntry entry={selectedEntry} onClose={() => setDrawerOpen(null)} />
+      )}
+
+      <ModalDeleteEntry
+        isOpen={modalDelete.isOpen}
+        onClose={() => setModalDelete({ isOpen: false, entryUuid: null, entryTitle: '' })}
+        onConfirm={confirmDelete}
+        entryTitle={modalDelete.entryTitle}
+      />
+
+      <ModalViewEntry
+        isOpen={modalView.isOpen}
+        onClose={() => setModalView({ isOpen: false, headers: [], answers: [], entryTitle: '' })}
+        headers={modalView.headers}
+        answers={modalView.answers}
+        entryTitle={modalView.entryTitle}
+      />
+
+      <WaitOverlay isVisible={isLoading} message="Processing..." />
     </div>
   );
 }
