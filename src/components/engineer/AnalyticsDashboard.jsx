@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import api from '../../api/api';
 import CustomChartBuilder from './CustomChartBuilder';
-import DistributionChart from '../../containers/DistributionChart';
+import DistributionCharts from '../../containers/DistributionCharts';
 import FilterEntriesControls from '../../containers/FilterEntriesControls';
 import DrawerDownload from '../../containers/DrawerDownload';
 import ModalPrepareDownload from '../../containers/ModalPrepareDownload';
