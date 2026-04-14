@@ -3,18 +3,20 @@ import React, { useState, useEffect } from 'react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { SortableItem } from './SortableItem';
+import Papa from 'papaparse';
+import { saveAs } from 'file-saver';
 import api from '../../api/api';
 
 const FIELD_TYPES = [
-    { id: 'text', label: 'Text', icon: '📝' },
-    { id: 'number', label: 'Number', icon: '🔢' },
-    { id: 'select', label: 'Select', icon: '📋' },
-    { id: 'checkbox', label: 'Checkbox', icon: '☑️' },
-    { id: 'radio', label: 'Radio', icon: '🔘' },
-    { id: 'textarea', label: 'Textarea', icon: '✏️' },
-    { id: 'date', label: 'Date', icon: '📅' },
-    { id: 'location', label: 'Location', icon: '📍' },
-    { id: 'photo', label: 'Photo', icon: '📷' },
+    { id: 'text', label: 'Text', icon: '📝', hasOptions: false, hasAdvanced: true },
+    { id: 'number', label: 'Number', icon: '🔢', hasOptions: false, hasAdvanced: true },
+    { id: 'select', label: 'Select', icon: '📋', hasOptions: true, hasAdvanced: true },
+    { id: 'checkbox', label: 'Checkbox', icon: '☑️', hasOptions: false, hasAdvanced: false },
+    { id: 'radio', label: 'Radio', icon: '🔘', hasOptions: true, hasAdvanced: true },
+    { id: 'textarea', label: 'Textarea', icon: '✏️', hasOptions: false, hasAdvanced: true },
+    { id: 'date', label: 'Date', icon: '📅', hasOptions: false, hasAdvanced: true },
+    { id: 'location', label: 'Location', icon: '📍', hasOptions: false, hasAdvanced: false },
+    { id: 'photo', label: 'Photo', icon: '📷', hasOptions: false, hasAdvanced: false },
 ];
 
 export default function FormBuilder({ form, onSaved, onCancel }) {
@@ -28,14 +30,12 @@ export default function FormBuilder({ form, onSaved, onCancel }) {
     const [title, setTitle] = useState(form?.title || '');
     const [description, setDescription] = useState(form?.description || '');
 
-    // Fetch existing schema if editing
+    // For possible answers import/export
+    const [csvFile, setCsvFile] = useState(null);
+
     useEffect(() => {
-        if (formId) {
-            fetchSchema();
-        } else {
-            setSchema({ fields: [] });
-            setLoading(false);
-        }
+        if (formId) fetchSchema();
+        else { setSchema({ fields: [] }); setLoading(false); }
     }, [formId]);
 
     const fetchSchema = async () => {
@@ -43,7 +43,7 @@ export default function FormBuilder({ form, onSaved, onCancel }) {
             const res = await api.get(`/forms/${formId}/schema`);
             setSchema(res.data);
         } catch (err) {
-            console.error('Error fetching schema', err);
+            console.error(err);
             setSchema({ fields: [] });
         } finally {
             setLoading(false);
@@ -54,7 +54,6 @@ export default function FormBuilder({ form, onSaved, onCancel }) {
         setSaving(true);
         try {
             let savedFormId = formId;
-            // If new form, create the form metadata first
             if (isNew) {
                 const res = await api.post('/forms', { title, description, is_active: true });
                 savedFormId = res.data.id;
@@ -62,12 +61,10 @@ export default function FormBuilder({ form, onSaved, onCancel }) {
             } else {
                 await api.put(`/forms/${formId}`, { title, description });
             }
-            // Save schema
             await api.put(`/forms/${savedFormId}/schema`, { schema });
             if (onSaved) onSaved(savedFormId);
         } catch (err) {
-            console.error('Error saving form', err);
-            alert('Failed to save form: ' + (err.response?.data?.error || err.message));
+            alert('Save failed: ' + (err.response?.data?.error || err.message));
         } finally {
             setSaving(false);
         }
@@ -79,7 +76,12 @@ export default function FormBuilder({ form, onSaved, onCancel }) {
             type: newFieldType,
             label: `New ${FIELD_TYPES.find(f => f.id === newFieldType)?.label} field`,
             required: false,
-            options: newFieldType === 'select' || newFieldType === 'radio' ? ['Option 1'] : undefined,
+            options: (newFieldType === 'select' || newFieldType === 'radio') ? ['Option 1'] : undefined,
+            possible_answers: (newFieldType === 'select' || newFieldType === 'radio') ? ['Option 1'] : undefined,
+            default: '',
+            min: '',
+            max: '',
+            regex: '',
         };
         setSchema(prev => ({ ...prev, fields: [...prev.fields, newField] }));
         setSelectedField(newField.id);
@@ -102,57 +104,82 @@ export default function FormBuilder({ form, onSaved, onCancel }) {
         if (active.id !== over.id) {
             const oldIndex = schema.fields.findIndex(f => f.id === active.id);
             const newIndex = schema.fields.findIndex(f => f.id === over.id);
-            setSchema(prev => ({
-                ...prev,
-                fields: arrayMove(prev.fields, oldIndex, newIndex)
-            }));
+            setSchema(prev => ({ ...prev, fields: arrayMove(prev.fields, oldIndex, newIndex) }));
         }
+    };
+
+    // Possible answers helpers
+    const addOption = (fieldId) => {
+        const field = schema.fields.find(f => f.id === fieldId);
+        if (!field) return;
+        const newOptions = [...(field.options || []), 'New Option'];
+        updateField(fieldId, { options: newOptions, possible_answers: newOptions });
+    };
+
+    const removeOption = (fieldId, idx) => {
+        const field = schema.fields.find(f => f.id === fieldId);
+        if (!field) return;
+        const newOptions = field.options.filter((_, i) => i !== idx);
+        updateField(fieldId, { options: newOptions, possible_answers: newOptions });
+    };
+
+    const updateOption = (fieldId, idx, value) => {
+        const field = schema.fields.find(f => f.id === fieldId);
+        if (!field) return;
+        const newOptions = [...field.options];
+        newOptions[idx] = value;
+        updateField(fieldId, { options: newOptions, possible_answers: newOptions });
+    };
+
+    const exportOptions = (fieldId) => {
+        const field = schema.fields.find(f => f.id === fieldId);
+        if (!field || !field.options) return;
+        const csv = Papa.unparse({ fields: [field.label], data: field.options.map(opt => [opt]) });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        saveAs(blob, `${field.label.replace(/\s/g, '_')}_options.csv`);
+    };
+
+    const importOptions = (fieldId, file) => {
+        Papa.parse(file, {
+            complete: (results) => {
+                const newOptions = results.data.flat().filter(v => v && v.trim());
+                if (newOptions.length) {
+                    updateField(fieldId, { options: newOptions, possible_answers: newOptions });
+                }
+            },
+            header: false,
+        });
     };
 
     const sensors = useSensors(useSensor(PointerSensor));
 
-    if (loading) {
-        return (
-            <div className="wd-panel" style={{ width: '90vw', maxWidth: '1200px' }}>
-                <div className="wd-panel-header">Loading form builder...</div>
-            </div>
-        );
-    }
+    if (loading) return <div className="wd-panel">Loading form builder...</div>;
 
     return (
-        <div className="wd-panel" style={{ width: '90vw', maxWidth: '1200px', height: '80vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="wd-panel" style={{ width: '90vw', maxWidth: '1200px', height: '85vh', display: 'flex', flexDirection: 'column' }}>
             <div className="wd-panel-header">
                 <div className="wd-panel-icon">📝</div>
                 <div>
                     <div className="wd-panel-title">{isNew ? 'Create New Form' : 'Edit Form'}</div>
-                    <div className="wd-panel-sub">Drag to reorder fields</div>
+                    <div className="wd-panel-sub">Design your data collection form</div>
                 </div>
                 <button className="wd-panel-close" onClick={onCancel}>×</button>
             </div>
+
             <div className="wd-panel-body" style={{ flex: 1, overflow: 'auto', padding: '1rem' }}>
                 {/* Form metadata */}
-                <div style={{ marginBottom: '1rem' }}>
-                    <label className="wd-label">Form Title</label>
-                    <input
-                        type="text"
-                        className="wd-input"
-                        value={title}
-                        onChange={e => setTitle(e.target.value)}
-                        placeholder="e.g., Manhole Inspection"
-                    />
-                </div>
                 <div style={{ marginBottom: '1.5rem' }}>
-                    <label className="wd-label">Description (optional)</label>
-                    <textarea
-                        className="wd-textarea"
-                        rows={2}
-                        value={description}
-                        onChange={e => setDescription(e.target.value)}
-                        placeholder="Describe the purpose of this form"
-                    />
+                    <div className="wd-field" style={{ marginBottom: '0.75rem' }}>
+                        <label className="wd-label">Form Title</label>
+                        <input className="wd-input" value={title} onChange={e => setTitle(e.target.value)} />
+                    </div>
+                    <div className="wd-field">
+                        <label className="wd-label">Description (optional)</label>
+                        <textarea className="wd-textarea" rows={2} value={description} onChange={e => setDescription(e.target.value)} />
+                    </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                     {/* Left: Field types */}
                     <div style={{ flex: 1, minWidth: '200px' }}>
                         <h3 className="wd-section">Field Types</h3>
@@ -161,26 +188,14 @@ export default function FormBuilder({ form, onSaved, onCancel }) {
                                 <button
                                     key={type.id}
                                     onClick={() => setNewFieldType(type.id)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem',
-                                        padding: '0.5rem',
-                                        borderRadius: '6px',
-                                        background: newFieldType === type.id ? '#e0f2fe' : '#f8fafc',
-                                        border: '1px solid #ddd',
-                                        cursor: 'pointer',
-                                        textAlign: 'left'
-                                    }}
+                                    className={`wd-btn ${newFieldType === type.id ? 'wd-btn-primary' : 'wd-btn-secondary'}`}
+                                    style={{ textAlign: 'left', justifyContent: 'flex-start' }}
                                 >
-                                    <span>{type.icon}</span> {type.label}
+                                    {type.icon} {type.label}
                                 </button>
                             ))}
                         </div>
-                        <button
-                            onClick={addField}
-                            style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', background: '#2c7da0', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-                        >
+                        <button className="wd-btn wd-btn-primary" style={{ width: '100%', marginTop: '1rem' }} onClick={addField}>
                             + Add Field
                         </button>
                     </div>
@@ -194,27 +209,20 @@ export default function FormBuilder({ form, onSaved, onCancel }) {
                                     {schema.fields.map(field => (
                                         <SortableItem key={field.id} id={field.id}>
                                             <div
-                                                style={{
-                                                    border: selectedField === field.id ? '2px solid #2c7da0' : '1px solid #ddd',
-                                                    borderRadius: '8px',
-                                                    padding: '0.75rem',
-                                                    background: selectedField === field.id ? '#f0f9ff' : 'white',
-                                                    cursor: 'grab',
-                                                    transition: 'all 0.2s'
-                                                }}
+                                                className={`wd-form-field-item ${selectedField === field.id ? 'selected' : ''}`}
                                                 onClick={() => setSelectedField(field.id)}
+                                                style={{ cursor: 'grab' }}
                                             >
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                        <span style={{ color: '#999', cursor: 'grab' }}>⋮⋮</span>
+                                                    <div>
+                                                        <span style={{ marginRight: '0.5rem', color: '#999' }}>⋮⋮</span>
                                                         <strong>{field.label}</strong>
-                                                        <span style={{ fontSize: '0.7rem', color: '#666' }}>({FIELD_TYPES.find(t => t.id === field.type)?.label})</span>
-                                                        {field.required && <span style={{ color: 'red', fontSize: '0.7rem' }}>*</span>}
+                                                        <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', color: '#666' }}>
+                                                            ({FIELD_TYPES.find(t => t.id === field.type)?.label})
+                                                        </span>
+                                                        {field.required && <span className="wd-badge wd-badge-danger" style={{ marginLeft: '0.5rem' }}>Required</span>}
                                                     </div>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
-                                                        style={{ background: 'none', border: 'none', color: '#e76f51', cursor: 'pointer' }}
-                                                    >🗑️</button>
+                                                    <button className="wd-icon-btn" onClick={(e) => { e.stopPropagation(); removeField(field.id); }}>🗑️</button>
                                                 </div>
                                             </div>
                                         </SortableItem>
@@ -222,84 +230,90 @@ export default function FormBuilder({ form, onSaved, onCancel }) {
                                 </div>
                             </SortableContext>
                         </DndContext>
-                        {schema.fields.length === 0 && (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>No fields yet. Add one from the left panel.</div>
-                        )}
+                        {schema.fields.length === 0 && <div className="wd-empty-state">No fields yet. Add one from the left panel.</div>}
                     </div>
 
                     {/* Right: Field properties */}
-                    <div style={{ flex: 1, minWidth: '250px' }}>
+                    <div style={{ flex: 1, minWidth: '280px' }}>
                         <h3 className="wd-section">Properties</h3>
                         {selectedField ? (
                             (() => {
                                 const field = schema.fields.find(f => f.id === selectedField);
                                 if (!field) return null;
+                                const fieldTypeInfo = FIELD_TYPES.find(t => t.id === field.type);
                                 return (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                        <div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        {/* Basic properties */}
+                                        <div className="wd-field">
                                             <label className="wd-label">Label</label>
-                                            <input
-                                                type="text"
-                                                className="wd-input"
-                                                value={field.label}
-                                                onChange={e => updateField(field.id, { label: e.target.value })}
-                                            />
+                                            <input className="wd-input" value={field.label} onChange={e => updateField(field.id, { label: e.target.value })} />
                                         </div>
-                                        <div>
+                                        <div className="wd-field">
                                             <label className="wd-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={field.required}
-                                                    onChange={e => updateField(field.id, { required: e.target.checked })}
-                                                />
+                                                <input type="checkbox" checked={field.required} onChange={e => updateField(field.id, { required: e.target.checked })} />
                                                 Required
                                             </label>
                                         </div>
-                                        {(field.type === 'select' || field.type === 'radio') && (
-                                            <div>
+
+                                        {/* Options (for select/radio) */}
+                                        {fieldTypeInfo?.hasOptions && (
+                                            <div className="wd-field">
                                                 <label className="wd-label">Options</label>
                                                 {field.options?.map((opt, idx) => (
                                                     <div key={idx} style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                                                        <input
-                                                            type="text"
-                                                            className="wd-input"
-                                                            value={opt}
-                                                            onChange={e => {
-                                                                const newOpts = [...field.options];
-                                                                newOpts[idx] = e.target.value;
-                                                                updateField(field.id, { options: newOpts });
-                                                            }}
-                                                        />
-                                                        <button
-                                                            onClick={() => {
-                                                                const newOpts = field.options.filter((_, i) => i !== idx);
-                                                                updateField(field.id, { options: newOpts });
-                                                            }}
-                                                            style={{ background: 'none', border: 'none', color: '#e76f51', cursor: 'pointer' }}
-                                                        >✕</button>
+                                                        <input className="wd-input" value={opt} onChange={e => updateOption(field.id, idx, e.target.value)} />
+                                                        <button className="wd-icon-btn" onClick={() => removeOption(field.id, idx)}>✕</button>
                                                     </div>
                                                 ))}
-                                                <button
-                                                    onClick={() => updateField(field.id, { options: [...(field.options || []), 'New Option'] })}
-                                                    style={{ background: 'none', border: 'none', color: '#2c7da0', cursor: 'pointer', marginTop: '0.25rem' }}
-                                                >+ Add option</button>
+                                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                                    <button className="wd-btn wd-btn-secondary" onClick={() => addOption(field.id)}>+ Add Option</button>
+                                                    <button className="wd-btn wd-btn-secondary" onClick={() => exportOptions(field.id)}>📤 Export CSV</button>
+                                                    <label className="wd-btn wd-btn-secondary" style={{ cursor: 'pointer' }}>
+                                                        📥 Import CSV
+                                                        <input type="file" accept=".csv" style={{ display: 'none' }} onChange={(e) => {
+                                                            if (e.target.files[0]) importOptions(field.id, e.target.files[0]);
+                                                            e.target.value = null;
+                                                        }} />
+                                                    </label>
+                                                </div>
                                             </div>
                                         )}
-                                        {field.type === 'location' && (
-                                            <div className="text-gray-500 text-sm">Location picker will be added on map.</div>
+
+                                        {/* Advanced properties (for applicable types) */}
+                                        {fieldTypeInfo?.hasAdvanced && (
+                                            <div className="wd-field">
+                                                <label className="wd-label">Default Value</label>
+                                                <input className="wd-input" value={field.default || ''} onChange={e => updateField(field.id, { default: e.target.value })} />
+                                            </div>
                                         )}
-                                        {field.type === 'photo' && (
-                                            <div className="text-gray-500 text-sm">Photo capture will be integrated.</div>
+                                        {field.type === 'number' && (
+                                            <>
+                                                <div className="wd-field">
+                                                    <label className="wd-label">Minimum</label>
+                                                    <input className="wd-input" type="number" value={field.min || ''} onChange={e => updateField(field.id, { min: e.target.value })} />
+                                                </div>
+                                                <div className="wd-field">
+                                                    <label className="wd-label">Maximum</label>
+                                                    <input className="wd-input" type="number" value={field.max || ''} onChange={e => updateField(field.id, { max: e.target.value })} />
+                                                </div>
+                                            </>
+                                        )}
+                                        {(field.type === 'text' || field.type === 'textarea' || field.type === 'number') && (
+                                            <div className="wd-field">
+                                                <label className="wd-label">Regex Validation</label>
+                                                <input className="wd-input" value={field.regex || ''} onChange={e => updateField(field.id, { regex: e.target.value })} placeholder="e.g., ^[A-Za-z]+$" />
+                                            </div>
                                         )}
                                     </div>
                                 );
                             })()
                         ) : (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>Select a field to edit its properties</div>
+                            <div className="wd-empty-state">Select a field to edit its properties</div>
                         )}
                     </div>
                 </div>
             </div>
+
             <div className="wd-panel-footer" style={{ padding: '1rem', borderTop: '1px solid #ddd', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                 <button className="wd-btn wd-btn-secondary" onClick={onCancel}>Cancel</button>
                 <button className="wd-btn wd-btn-primary" onClick={saveForm} disabled={saving}>
