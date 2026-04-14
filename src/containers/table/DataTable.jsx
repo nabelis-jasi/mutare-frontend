@@ -2,7 +2,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Table as FixedDataTable, Column, Cell } from 'fixed-data-table-2';
-import TableCell from '../../table/TableCell';
+import TableCell from '../../components/table/TableCell';
 import PARAMETERS from '../../config/parameters';
 import helpers from '../../utils/helpers';
 
