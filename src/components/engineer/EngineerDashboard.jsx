@@ -15,7 +15,7 @@ import PendingEdits from './PendingEdits';
 import HomePanel from './HomePanel';
 import ProfilePanel from './ProfilePanel';
 import SettingsPanel from './SettingsPanel';
-import './styles/Dashboard.css';  // <-- updated path
+import './style/Dashboard.css';  
 
 export default function EngineerDashboard({ user, onLogout }) {
   const userId = user?.id;
