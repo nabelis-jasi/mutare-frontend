@@ -15,7 +15,6 @@ import PendingEdits from './PendingEdits';
 import HomePanel from './HomePanel';
 import ProfilePanel from './ProfilePanel';
 import SettingsPanel from './SettingsPanel';
-import './style/Dashboard.css';  
 
 export default function EngineerDashboard({ user, onLogout }) {
   const userId = user?.id;
@@ -119,33 +118,128 @@ export default function EngineerDashboard({ user, onLogout }) {
     }
   };
 
+  // Inline styles
+  const styles = {
+    root: {
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+      width: '100vw',
+      overflow: 'hidden',
+      fontFamily: 'system-ui, -apple-system, sans-serif'
+    },
+    topbar: {
+      background: 'white',
+      borderBottom: '1px solid #ddd',
+      padding: '0 1.5rem',
+      height: '60px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+      zIndex: 10
+    },
+    mainLayout: {
+      display: 'flex',
+      flex: 1,
+      overflow: 'hidden'
+    },
+    mapContainer: {
+      flex: 2,
+      position: 'relative',
+      background: '#e9ecef'
+    },
+    panelContainer: {
+      flex: 1,
+      minWidth: '380px',
+      maxWidth: '480px',
+      background: 'white',
+      borderLeft: '1px solid #ddd',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    },
+    tabBar: {
+      display: 'flex',
+      background: '#f8fafc',
+      borderBottom: '1px solid #ddd',
+      padding: '0.5rem 0.75rem 0',
+      gap: '0.25rem',
+      overflowX: 'auto'
+    },
+    tab: {
+      padding: '0.5rem 1rem',
+      background: 'white',
+      border: '1px solid #ddd',
+      borderBottom: 'none',
+      borderRadius: '8px 8px 0 0',
+      fontSize: '0.85rem',
+      fontWeight: 500,
+      color: '#6c757d',
+      cursor: 'pointer',
+      whiteSpace: 'nowrap',
+      transition: 'all 0.2s'
+    },
+    activeTab: {
+      color: '#2c7da0',
+      borderColor: '#2c7da0',
+      borderBottomColor: 'white',
+      background: 'white',
+      position: 'relative',
+      zIndex: 1
+    },
+    panelContent: {
+      flex: 1,
+      overflowY: 'auto',
+      padding: '1.25rem'
+    },
+    badge: {
+      background: '#e76f51',
+      color: 'white',
+      borderRadius: '12px',
+      padding: '0.1rem 0.4rem',
+      fontSize: '0.7rem',
+      marginLeft: '0.3rem'
+    }
+  };
+
   return (
-    <div className="wd-root">
-      {/* Top Bar */}
-      <header className="wd-topbar">
-        <div className="wd-brand">
-          <div className="wd-brand-logo">🪣</div>
+    <div style={styles.root}>
+      {/* TOP BAR */}
+      <header style={styles.topbar}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ fontSize: '1.8rem' }}>🪣</span>
           <div>
-            <div className="wd-brand-name">WWGIS</div>
-            <div className="wd-brand-tagline">Engineer Dashboard</div>
+            <div style={{ fontWeight: 700, fontSize: '1.2rem', color: '#2c7da0' }}>WWGIS</div>
+            <div style={{ fontSize: '0.7rem', color: '#6c757d' }}>Engineer Dashboard</div>
           </div>
         </div>
-        <div className="wd-chips">
-          <div className="wd-chip"><span className="dot dot-green" />{manholes?.length ?? 0} Manholes</div>
-          <div className="wd-chip"><span className="dot dot-lime" />{pipes?.length ?? 0} Pipelines</div>
-          <div className="wd-chip"><span className="dot dot-amber" />{connectionActive ? 'Connected' : 'No DB'}</div>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ background: '#eef2f5', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem' }}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#2a9d8f', marginRight: '0.4rem' }}></span>
+            {manholes?.length ?? 0} Manholes
+          </div>
+          <div style={{ background: '#eef2f5', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem' }}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#a7c957', marginRight: '0.4rem' }}></span>
+            {pipes?.length ?? 0} Pipelines
+          </div>
+          <div style={{ background: '#eef2f5', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem' }}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: connectionActive ? '#2a9d8f' : '#e76f51', marginRight: '0.4rem' }}></span>
+            {connectionActive ? 'Connected' : 'No DB'}
+          </div>
         </div>
-        <div className="wd-topbar-actions">
-          <button className={`wd-icon-btn ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>👤</button>
-          <button className={`wd-icon-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>⚙️</button>
-          <button className="wd-icon-btn" onClick={onLogout}>⎋</button>
-          <div className="wd-role-pill">{role}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }} onClick={() => setActiveTab('profile')}>👤</button>
+          <button style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }} onClick={() => setActiveTab('settings')}>⚙️</button>
+          <button style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }} onClick={onLogout}>⎋</button>
+          <div style={{ background: '#2c7da0', color: 'white', padding: '0.2rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem' }}>{role}</div>
         </div>
       </header>
 
-      <div className="wd-main-layout">
-        {/* Map */}
-        <div className="wd-map-container">
+      {/* MAIN LAYOUT */}
+      <div style={styles.mainLayout}>
+        {/* MAP */}
+        <div style={styles.mapContainer}>
           <MapView
             manholes={manholes}
             pipes={pipes}
@@ -155,23 +249,23 @@ export default function EngineerDashboard({ user, onLogout }) {
           />
         </div>
 
-        {/* Right Panel with Tabs */}
-        <div className="wd-panel-container">
-          <div className="wd-tab-bar">
-            <button className={`wd-tab ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>🏠 Home</button>
-            <button className={`wd-tab ${activeTab === 'connections' ? 'active' : ''}`} onClick={() => setActiveTab('connections')}>🔌 Connections</button>
-            <button className={`wd-tab ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>📊 Analytics</button>
-            <button className={`wd-tab ${activeTab === 'forms' ? 'active' : ''}`} onClick={() => setActiveTab('forms')}>📝 Forms</button>
-            <button className={`wd-tab ${activeTab === 'submissions' ? 'active' : ''}`} onClick={() => setActiveTab('submissions')}>📋 Submissions</button>
-            <button className={`wd-tab ${activeTab === 'edits' ? 'active' : ''}`} onClick={() => setActiveTab('edits')}>
-              ✏️ Edits {pendingEditCount > 0 && <span className="badge">{pendingEditCount}</span>}
+        {/* RIGHT PANEL WITH TABS */}
+        <div style={styles.panelContainer}>
+          <div style={styles.tabBar}>
+            <button style={{ ...styles.tab, ...(activeTab === 'home' ? styles.activeTab : {}) }} onClick={() => setActiveTab('home')}>🏠 Home</button>
+            <button style={{ ...styles.tab, ...(activeTab === 'connections' ? styles.activeTab : {}) }} onClick={() => setActiveTab('connections')}>🔌 Connections</button>
+            <button style={{ ...styles.tab, ...(activeTab === 'analytics' ? styles.activeTab : {}) }} onClick={() => setActiveTab('analytics')}>📊 Analytics</button>
+            <button style={{ ...styles.tab, ...(activeTab === 'forms' ? styles.activeTab : {}) }} onClick={() => setActiveTab('forms')}>📝 Forms</button>
+            <button style={{ ...styles.tab, ...(activeTab === 'submissions' ? styles.activeTab : {}) }} onClick={() => setActiveTab('submissions')}>📋 Submissions</button>
+            <button style={{ ...styles.tab, ...(activeTab === 'edits' ? styles.activeTab : {}) }} onClick={() => setActiveTab('edits')}>
+              ✏️ Edits {pendingEditCount > 0 && <span style={styles.badge}>{pendingEditCount}</span>}
             </button>
-            <button className={`wd-tab ${activeTab === 'flags' ? 'active' : ''}`} onClick={() => setActiveTab('flags')}>🚩 Flags</button>
-            <button className={`wd-tab ${activeTab === 'uploader' ? 'active' : ''}`} onClick={() => setActiveTab('uploader')}>📤 Upload</button>
-            <button className={`wd-tab ${activeTab === 'sync' ? 'active' : ''}`} onClick={() => setActiveTab('sync')}>🔄 Sync</button>
+            <button style={{ ...styles.tab, ...(activeTab === 'flags' ? styles.activeTab : {}) }} onClick={() => setActiveTab('flags')}>🚩 Flags</button>
+            <button style={{ ...styles.tab, ...(activeTab === 'uploader' ? styles.activeTab : {}) }} onClick={() => setActiveTab('uploader')}>📤 Upload</button>
+            <button style={{ ...styles.tab, ...(activeTab === 'sync' ? styles.activeTab : {}) }} onClick={() => setActiveTab('sync')}>🔄 Sync</button>
           </div>
-          <div className="wd-panel-content">
-            {loading && activeTab === 'home' ? <div className="wd-loading">Loading data...</div> : renderContent()}
+          <div style={styles.panelContent}>
+            {loading && activeTab === 'home' ? <div>Loading data...</div> : renderContent()}
           </div>
         </div>
       </div>
