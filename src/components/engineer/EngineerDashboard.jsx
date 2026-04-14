@@ -40,7 +40,7 @@ export default function EngineerDashboard({ user, onLogout }) {
   const [pendingEditCount, setPendingEditCount] = useState(0);
 
   // New state for drawers and modals
-  const [drawerOpen, setDrawerOpen] = useState(null); // 'download', 'upload', 'map', 'entry'
+  const [drawerOpen, setDrawerOpen] = useState(null);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [modalDelete, setModalDelete] = useState({ isOpen: false, entryUuid: null, entryTitle: '' });
   const [modalView, setModalView] = useState({ isOpen: false, headers: [], answers: [], entryTitle: '' });
@@ -99,13 +99,11 @@ export default function EngineerDashboard({ user, onLogout }) {
     fetchData();
   };
 
-  // Handlers for drawers and modals
+  // Handlers for drawers and modals (unchanged)
   const handleDownload = async (format, includeMedia) => {
     setIsLoading(true);
     try {
-      // Build download URL with current filters (you need to manage filters state)
       const params = new URLSearchParams({ format, include_media: includeMedia });
-      // You may also pass date range, etc.
       const response = await api.get(`/analytics/export?${params.toString()}`, {
         responseType: 'blob',
       });
@@ -131,7 +129,7 @@ export default function EngineerDashboard({ user, onLogout }) {
     formData.append('file', file);
     try {
       await api.post('/upload/bulk', formData);
-      handleDataRefresh(); // refresh submissions list
+      handleDataRefresh();
     } catch (error) {
       console.error('Upload failed', error);
     } finally {
@@ -160,7 +158,6 @@ export default function EngineerDashboard({ user, onLogout }) {
   };
 
   const handleEditEntry = (entryUuid) => {
-    // Implement edit logic (e.g., open a drawer or navigate)
     console.log('Edit entry', entryUuid);
   };
 
@@ -208,7 +205,7 @@ export default function EngineerDashboard({ user, onLogout }) {
     }
   };
 
-  // Inline styles (unchanged)
+  // Updated inline styles – tab bar now uses a two‑column grid
   const styles = {
     root: {
       display: 'flex',
@@ -249,34 +246,31 @@ export default function EngineerDashboard({ user, onLogout }) {
       flexDirection: 'column',
       overflow: 'hidden'
     },
+    // Tab bar now uses CSS Grid with two columns
     tabBar: {
-      display: 'flex',
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, 1fr)',
+      gap: '0.5rem',
       background: '#f8fafc',
+      padding: '0.75rem',
       borderBottom: '1px solid #ddd',
-      padding: '0.5rem 0.75rem 0',
-      gap: '0.25rem',
-      overflowX: 'auto'
     },
     tab: {
-      padding: '0.5rem 1rem',
+      padding: '0.5rem 0.75rem',
       background: 'white',
       border: '1px solid #ddd',
-      borderBottom: 'none',
-      borderRadius: '8px 8px 0 0',
+      borderRadius: '6px',
       fontSize: '0.85rem',
       fontWeight: 500,
       color: '#6c757d',
       cursor: 'pointer',
-      whiteSpace: 'nowrap',
-      transition: 'all 0.2s'
+      textAlign: 'center',
+      transition: 'all 0.2s',
     },
     activeTab: {
       color: '#2c7da0',
       borderColor: '#2c7da0',
-      borderBottomColor: 'white',
       background: 'white',
-      position: 'relative',
-      zIndex: 1
     },
     panelContent: {
       flex: 1,
@@ -341,6 +335,7 @@ export default function EngineerDashboard({ user, onLogout }) {
 
         {/* RIGHT PANEL WITH TABS */}
         <div style={styles.panelContainer}>
+          {/* Tabs arranged in two columns */}
           <div style={styles.tabBar}>
             <button style={{ ...styles.tab, ...(activeTab === 'home' ? styles.activeTab : {}) }} onClick={() => setActiveTab('home')}>🏠 Home</button>
             <button style={{ ...styles.tab, ...(activeTab === 'connections' ? styles.activeTab : {}) }} onClick={() => setActiveTab('connections')}>🔌 Connections</button>
@@ -360,7 +355,7 @@ export default function EngineerDashboard({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Drawers and Modals */}
+      {/* Drawers and Modals (unchanged) */}
       {drawerOpen === 'download' && (
         <DrawerDownload onClose={() => setDrawerOpen(null)} onDownload={handleDownload} />
       )}
