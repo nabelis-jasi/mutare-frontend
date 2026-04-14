@@ -1,7 +1,8 @@
+// src/components/engineer/FormBuilder.jsx
 import React, { useState, useEffect } from 'react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
-import { SortableItem } from './SortableItem'; // we'll create this
+import { SortableItem } from './SortableItem';
 import api from '../../api/api';
 
 const FIELD_TYPES = [
@@ -16,29 +17,60 @@ const FIELD_TYPES = [
     { id: 'photo', label: 'Photo', icon: '📷' },
 ];
 
-export default function FormBuilder({ formId, onSaved, onCancel }) {
+export default function FormBuilder({ form, onSaved, onCancel }) {
+    const isNew = !form?.id;
+    const [formId, setFormId] = useState(form?.id || null);
     const [schema, setSchema] = useState({ fields: [] });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [selectedField, setSelectedField] = useState(null);
     const [newFieldType, setNewFieldType] = useState('text');
+    const [title, setTitle] = useState(form?.title || '');
+    const [description, setDescription] = useState(form?.description || '');
 
+    // Fetch existing schema if editing
     useEffect(() => {
-        if (formId) fetchSchema();
-        else setSchema({ fields: [] });
+        if (formId) {
+            fetchSchema();
+        } else {
+            setSchema({ fields: [] });
+            setLoading(false);
+        }
     }, [formId]);
 
     const fetchSchema = async () => {
-        const res = await api.get(`/forms/${formId}/schema`);
-        setSchema(res.data);
-        setLoading(false);
+        try {
+            const res = await api.get(`/forms/${formId}/schema`);
+            setSchema(res.data);
+        } catch (err) {
+            console.error('Error fetching schema', err);
+            setSchema({ fields: [] });
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const saveSchema = async () => {
+    const saveForm = async () => {
         setSaving(true);
-        await api.put(`/forms/${formId}/schema`, { schema });
-        if (onSaved) onSaved();
-        setSaving(false);
+        try {
+            let savedFormId = formId;
+            // If new form, create the form metadata first
+            if (isNew) {
+                const res = await api.post('/forms', { title, description, is_active: true });
+                savedFormId = res.data.id;
+                setFormId(savedFormId);
+            } else {
+                await api.put(`/forms/${formId}`, { title, description });
+            }
+            // Save schema
+            await api.put(`/forms/${savedFormId}/schema`, { schema });
+            if (onSaved) onSaved(savedFormId);
+        } catch (err) {
+            console.error('Error saving form', err);
+            alert('Failed to save form: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setSaving(false);
+        }
     };
 
     const addField = () => {
@@ -79,27 +111,67 @@ export default function FormBuilder({ formId, onSaved, onCancel }) {
 
     const sensors = useSensors(useSensor(PointerSensor));
 
-    if (loading) return <div className="p-4">Loading form builder...</div>;
+    if (loading) {
+        return (
+            <div className="wd-panel" style={{ width: '90vw', maxWidth: '1200px' }}>
+                <div className="wd-panel-header">Loading form builder...</div>
+            </div>
+        );
+    }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg w-11/12 max-w-6xl h-5/6 flex flex-col shadow-xl">
-                {/* Header */}
-                <div className="flex justify-between items-center p-4 border-b">
-                    <h2 className="text-xl font-bold">Form Builder</h2>
-                    <button onClick={onCancel} className="text-gray-500 hover:text-gray-700">✕</button>
+        <div className="wd-panel" style={{ width: '90vw', maxWidth: '1200px', height: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="wd-panel-header">
+                <div className="wd-panel-icon">📝</div>
+                <div>
+                    <div className="wd-panel-title">{isNew ? 'Create New Form' : 'Edit Form'}</div>
+                    <div className="wd-panel-sub">Drag to reorder fields</div>
+                </div>
+                <button className="wd-panel-close" onClick={onCancel}>×</button>
+            </div>
+            <div className="wd-panel-body" style={{ flex: 1, overflow: 'auto', padding: '1rem' }}>
+                {/* Form metadata */}
+                <div style={{ marginBottom: '1rem' }}>
+                    <label className="wd-label">Form Title</label>
+                    <input
+                        type="text"
+                        className="wd-input"
+                        value={title}
+                        onChange={e => setTitle(e.target.value)}
+                        placeholder="e.g., Manhole Inspection"
+                    />
+                </div>
+                <div style={{ marginBottom: '1.5rem' }}>
+                    <label className="wd-label">Description (optional)</label>
+                    <textarea
+                        className="wd-textarea"
+                        rows={2}
+                        value={description}
+                        onChange={e => setDescription(e.target.value)}
+                        placeholder="Describe the purpose of this form"
+                    />
                 </div>
 
-                <div className="flex flex-1 overflow-hidden">
-                    {/* Left: Field list (draggable) */}
-                    <div className="w-1/3 border-r p-4 overflow-y-auto">
-                        <h3 className="font-semibold mb-2">Field Types</h3>
-                        <div className="space-y-2 mb-4">
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    {/* Left: Field types */}
+                    <div style={{ flex: 1, minWidth: '200px' }}>
+                        <h3 className="wd-section">Field Types</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             {FIELD_TYPES.map(type => (
                                 <button
                                     key={type.id}
                                     onClick={() => setNewFieldType(type.id)}
-                                    className={`w-full text-left px-3 py-2 rounded flex items-center gap-2 ${newFieldType === type.id ? 'bg-blue-100 border-blue-500' : 'bg-gray-50 hover:bg-gray-100'}`}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        padding: '0.5rem',
+                                        borderRadius: '6px',
+                                        background: newFieldType === type.id ? '#e0f2fe' : '#f8fafc',
+                                        border: '1px solid #ddd',
+                                        cursor: 'pointer',
+                                        textAlign: 'left'
+                                    }}
                                 >
                                     <span>{type.icon}</span> {type.label}
                                 </button>
@@ -107,34 +179,41 @@ export default function FormBuilder({ formId, onSaved, onCancel }) {
                         </div>
                         <button
                             onClick={addField}
-                            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+                            style={{ marginTop: '1rem', width: '100%', padding: '0.5rem', background: '#2c7da0', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
                         >
                             + Add Field
                         </button>
                     </div>
 
-                    {/* Center: Form fields (sortable) */}
-                    <div className="w-1/2 border-r p-4 overflow-y-auto">
-                        <h3 className="font-semibold mb-2">Form Fields</h3>
+                    {/* Center: Sortable fields */}
+                    <div style={{ flex: 2, minWidth: '300px' }}>
+                        <h3 className="wd-section">Form Fields</h3>
                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
                             <SortableContext items={schema.fields.map(f => f.id)} strategy={verticalListSortingStrategy}>
-                                <div className="space-y-2">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                     {schema.fields.map(field => (
                                         <SortableItem key={field.id} id={field.id}>
                                             <div
-                                                className={`border rounded p-3 cursor-move hover:shadow-md transition ${selectedField === field.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+                                                style={{
+                                                    border: selectedField === field.id ? '2px solid #2c7da0' : '1px solid #ddd',
+                                                    borderRadius: '8px',
+                                                    padding: '0.75rem',
+                                                    background: selectedField === field.id ? '#f0f9ff' : 'white',
+                                                    cursor: 'grab',
+                                                    transition: 'all 0.2s'
+                                                }}
                                                 onClick={() => setSelectedField(field.id)}
                                             >
-                                                <div className="flex justify-between items-center">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-gray-400">⋮⋮</span>
-                                                        <span className="font-medium">{field.label}</span>
-                                                        <span className="text-xs text-gray-500">({FIELD_TYPES.find(t => t.id === field.type)?.label})</span>
-                                                        {field.required && <span className="text-red-500 text-xs">*</span>}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <span style={{ color: '#999', cursor: 'grab' }}>⋮⋮</span>
+                                                        <strong>{field.label}</strong>
+                                                        <span style={{ fontSize: '0.7rem', color: '#666' }}>({FIELD_TYPES.find(t => t.id === field.type)?.label})</span>
+                                                        {field.required && <span style={{ color: 'red', fontSize: '0.7rem' }}>*</span>}
                                                     </div>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
-                                                        className="text-red-500 hover:text-red-700"
+                                                        style={{ background: 'none', border: 'none', color: '#e76f51', cursor: 'pointer' }}
                                                     >🗑️</button>
                                                 </div>
                                             </div>
@@ -143,89 +222,89 @@ export default function FormBuilder({ formId, onSaved, onCancel }) {
                                 </div>
                             </SortableContext>
                         </DndContext>
-                        {schema.fields.length === 0 && <div className="text-gray-400 text-center py-8">No fields yet. Add some from the left panel.</div>}
+                        {schema.fields.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>No fields yet. Add one from the left panel.</div>
+                        )}
                     </div>
 
                     {/* Right: Field properties */}
-                    <div className="w-1/3 p-4 overflow-y-auto">
-                        <h3 className="font-semibold mb-2">Properties</h3>
+                    <div style={{ flex: 1, minWidth: '250px' }}>
+                        <h3 className="wd-section">Properties</h3>
                         {selectedField ? (
-                            <>
-                                {(() => {
-                                    const field = schema.fields.find(f => f.id === selectedField);
-                                    if (!field) return null;
-                                    return (
-                                        <div className="space-y-3">
-                                            <div>
-                                                <label className="block text-sm font-medium">Label</label>
-                                                <input
-                                                    type="text"
-                                                    value={field.label}
-                                                    onChange={e => updateField(field.id, { label: e.target.value })}
-                                                    className="w-full border rounded px-2 py-1"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium">Required</label>
+                            (() => {
+                                const field = schema.fields.find(f => f.id === selectedField);
+                                if (!field) return null;
+                                return (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        <div>
+                                            <label className="wd-label">Label</label>
+                                            <input
+                                                type="text"
+                                                className="wd-input"
+                                                value={field.label}
+                                                onChange={e => updateField(field.id, { label: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="wd-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                 <input
                                                     type="checkbox"
                                                     checked={field.required}
                                                     onChange={e => updateField(field.id, { required: e.target.checked })}
                                                 />
-                                            </div>
-                                            {(field.type === 'select' || field.type === 'radio') && (
-                                                <div>
-                                                    <label className="block text-sm font-medium">Options</label>
-                                                    {field.options?.map((opt, idx) => (
-                                                        <div key={idx} className="flex gap-1 mb-1">
-                                                            <input
-                                                                type="text"
-                                                                value={opt}
-                                                                onChange={e => {
-                                                                    const newOpts = [...field.options];
-                                                                    newOpts[idx] = e.target.value;
-                                                                    updateField(field.id, { options: newOpts });
-                                                                }}
-                                                                className="flex-1 border rounded px-2 py-1"
-                                                            />
-                                                            <button
-                                                                onClick={() => {
-                                                                    const newOpts = field.options.filter((_, i) => i !== idx);
-                                                                    updateField(field.id, { options: newOpts });
-                                                                }}
-                                                                className="text-red-500"
-                                                            >✕</button>
-                                                        </div>
-                                                    ))}
-                                                    <button
-                                                        onClick={() => updateField(field.id, { options: [...(field.options || []), 'New Option'] })}
-                                                        className="text-blue-600 text-sm"
-                                                    >+ Add option</button>
-                                                </div>
-                                            )}
-                                            {field.type === 'location' && (
-                                                <div className="text-sm text-gray-500">Location picker will be added on map.</div>
-                                            )}
-                                            {field.type === 'photo' && (
-                                                <div className="text-sm text-gray-500">Photo capture will be integrated.</div>
-                                            )}
+                                                Required
+                                            </label>
                                         </div>
-                                    );
-                                })()}
-                            </>
+                                        {(field.type === 'select' || field.type === 'radio') && (
+                                            <div>
+                                                <label className="wd-label">Options</label>
+                                                {field.options?.map((opt, idx) => (
+                                                    <div key={idx} style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.25rem' }}>
+                                                        <input
+                                                            type="text"
+                                                            className="wd-input"
+                                                            value={opt}
+                                                            onChange={e => {
+                                                                const newOpts = [...field.options];
+                                                                newOpts[idx] = e.target.value;
+                                                                updateField(field.id, { options: newOpts });
+                                                            }}
+                                                        />
+                                                        <button
+                                                            onClick={() => {
+                                                                const newOpts = field.options.filter((_, i) => i !== idx);
+                                                                updateField(field.id, { options: newOpts });
+                                                            }}
+                                                            style={{ background: 'none', border: 'none', color: '#e76f51', cursor: 'pointer' }}
+                                                        >✕</button>
+                                                    </div>
+                                                ))}
+                                                <button
+                                                    onClick={() => updateField(field.id, { options: [...(field.options || []), 'New Option'] })}
+                                                    style={{ background: 'none', border: 'none', color: '#2c7da0', cursor: 'pointer', marginTop: '0.25rem' }}
+                                                >+ Add option</button>
+                                            </div>
+                                        )}
+                                        {field.type === 'location' && (
+                                            <div className="text-gray-500 text-sm">Location picker will be added on map.</div>
+                                        )}
+                                        {field.type === 'photo' && (
+                                            <div className="text-gray-500 text-sm">Photo capture will be integrated.</div>
+                                        )}
+                                    </div>
+                                );
+                            })()
                         ) : (
-                            <div className="text-gray-400 text-center py-8">Select a field to edit its properties</div>
+                            <div style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>Select a field to edit its properties</div>
                         )}
                     </div>
                 </div>
-
-                {/* Footer */}
-                <div className="border-t p-4 flex justify-end gap-2">
-                    <button onClick={onCancel} className="px-4 py-2 border rounded hover:bg-gray-100">Cancel</button>
-                    <button onClick={saveSchema} disabled={saving} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                        {saving ? 'Saving...' : 'Save Form'}
-                    </button>
-                </div>
+            </div>
+            <div className="wd-panel-footer" style={{ padding: '1rem', borderTop: '1px solid #ddd', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                <button className="wd-btn wd-btn-secondary" onClick={onCancel}>Cancel</button>
+                <button className="wd-btn wd-btn-primary" onClick={saveForm} disabled={saving}>
+                    {saving ? 'Saving...' : 'Save Form'}
+                </button>
             </div>
         </div>
     );
