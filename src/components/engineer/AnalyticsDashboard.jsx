@@ -6,17 +6,10 @@ import {
 } from 'recharts';
 import api from '../../api/api';
 import CustomChartBuilder from './CustomChartBuilder';
-import '../shared/Dashboard.css'; // ensure CSS is imported
+import '../style/Dashboard.css'; // 
 
 export default function AnalyticsDashboard({ onClose }) {
-    // ... all state and fetch functions remain exactly the same as in the previous working version ...
-    // (I'll keep them unchanged to avoid errors)
-
-    // For brevity, I'll include the full component code with className instead of inline styles.
-    // The state and fetch logic are identical to the last working version.
-
-    // [PASTE THE COMPLETE STATE AND FETCH FUNCTIONS FROM THE PREVIOUS WORKING VERSION]
-    // Then replace the return JSX with the version below.
+    
 
     return (
         <div className="wd-panel" style={{ width: '90vw', maxWidth: '1200px' }}>
