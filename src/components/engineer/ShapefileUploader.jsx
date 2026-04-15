@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import shp from 'shpjs';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { useTable } from 'react-table';
+import { useTable } from '@tanstack/react-table';
 
 export default function ShapefileUploader({ onUploadComplete, onClose }) {
   const [file, setFile] = useState(null);
