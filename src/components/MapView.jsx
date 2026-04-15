@@ -1,3 +1,4 @@
+// src/components/MapView.jsx
 import React, { useState, useRef, useEffect } from "react";
 import {
   MapContainer,
@@ -6,25 +7,19 @@ import {
   Polyline,
   useMap,
   useMapEvents,
-  LayersControl,
-  WMSTileLayer,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import api from "../api/api";
 
-// ── Fix default marker icons
+// Fix default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
-// ── Tile definitions
+// Tile definitions (unchanged)
 const TILES = {
   osm: {
     id: "osm",
@@ -61,7 +56,7 @@ const TILES = {
   },
 };
 
-// ── Colors
+// Colors
 const manholeColor = (s) => {
   if (!s) return "#28a745";
   const v = s.toLowerCase();
@@ -71,28 +66,17 @@ const manholeColor = (s) => {
 };
 const pipeColor = (s) => (!s ? "#2b7bff" : s.toLowerCase().includes("block") ? "#dc3545" : "#2b7bff");
 
-// ── Manhole icon
+// Manhole icon
 const manholeIcon = (color, size = 20) =>
   L.divIcon({
     className: "custom-marker",
-    html: `<div style="
-      background-color:${color};
-      width:${size}px;
-      height:${size}px;
-      border-radius:50%;
-      border:3px solid white;
-      box-shadow:0 4px 8px rgba(0,0,0,0.3);
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      font-size:${size / 2}px;
-    ">🕳️</div>`,
+    html: `<div style="background-color:${color}; width:${size}px; height:${size}px; border-radius:50%; border:3px solid white; box-shadow:0 4px 8px rgba(0,0,0,0.3); display:flex; justify-content:center; align-items:center; font-size:${size / 2}px;">🕳️</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -(size / 2 + 4)],
   });
 
-// ── Parse geometry
+// Parse geometry helpers
 const parsePoint = (geom) => {
   try {
     const g = typeof geom === "string" ? JSON.parse(geom) : geom;
@@ -112,7 +96,7 @@ const parseLine = (geom) => {
   return null;
 };
 
-// ── Tile Manager
+// Tile Manager
 function TileManager({ activeTiles }) {
   const map = useMap();
   const layerRefs = useRef({});
@@ -138,7 +122,7 @@ function TileManager({ activeTiles }) {
   return null;
 }
 
-// ── Map events
+// Map events
 function MapBootstrap({ onMapReady, setCoords, pickMode, onMapClick }) {
   const map = useMap();
   useEffect(() => { if (onMapReady) onMapReady(map); }, [map, onMapReady]);
@@ -152,17 +136,19 @@ function MapBootstrap({ onMapReady, setCoords, pickMode, onMapClick }) {
   return null;
 }
 
-// ── Zoom control
+// Zoom control
 function ZoomReposition() {
   const map = useMap();
   useEffect(() => { map.zoomControl?.remove(); L.control.zoom({ position: "bottomright" }).addTo(map); }, [map]);
   return null;
 }
 
-// ── TileSelector
+// Tile selector
 function TileSelector({ activeTiles, setActiveTiles }) {
   const [expanded, setExpanded] = useState(false);
-  const toggleTile = (id) => setActiveTiles((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  const toggleTile = (id) => setActiveTiles((prev) =>
+    prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+  );
 
   return (
     <div style={{ position: "absolute", top: 12, right: 12, zIndex: 1000, display: "flex", flexDirection: "column", gap: 4, background: "rgba(7,20,7,0.88)", borderRadius: 8, padding: 6 }}>
@@ -178,92 +164,6 @@ function TileSelector({ activeTiles, setActiveTiles }) {
   );
 }
 
-// ── GeoServer Connection Component
-function GeoServerLayers({ geoserverUrl, workspace }) {
-  const [connectionActive, setConnectionActive] = useState(false);
-  const [url, setUrl] = useState('http://localhost:8080/geoserver/wastewater/wms');
-  const [ws, setWs] = useState(workspace || 'wastewater');
-
-  useEffect(() => {
-    if (geoserverUrl) {
-      let baseUrl = geoserverUrl;
-      if (!baseUrl.includes('/wastewater/wms')) {
-        baseUrl = baseUrl.replace(/\/wms$/, '/wastewater/wms');
-        if (!baseUrl.includes('/wastewater/wms')) {
-          baseUrl = `${baseUrl}/wastewater/wms`;
-        }
-      }
-      setUrl(baseUrl);
-      setConnectionActive(true);
-      return;
-    }
-    
-    const fetchActiveConnection = async () => {
-      try {
-        const res = await api.get('/connections/active');
-        if (res.data && res.data.geoserver_url) {
-          let baseUrl = res.data.geoserver_url;
-          if (!baseUrl.includes('/wastewater/wms')) {
-            baseUrl = baseUrl.replace(/\/wms$/, '/wastewater/wms');
-            if (!baseUrl.includes('/wastewater/wms')) {
-              baseUrl = `${baseUrl}/wastewater/wms`;
-            }
-          }
-          setUrl(baseUrl);
-          setWs(res.data.workspace || 'wastewater');
-          setConnectionActive(true);
-        }
-      } catch (err) {
-        console.warn('No active GeoServer connection, using default', err);
-        setConnectionActive(true);
-      }
-    };
-    
-    fetchActiveConnection();
-  }, [geoserverUrl, workspace]);
-
-  if (!connectionActive) return null;
-
-  return (
-    <LayersControl position="topright">
-      <LayersControl.Overlay name="🗺️ Manholes (GeoServer)">
-        <WMSTileLayer
-          url={url}
-          layers={`${ws}:waste_water_manhole`}
-          format="image/png"
-          transparent={true}
-          opacity={0.7}
-          version="1.1.0"
-          srs="EPSG:4326"
-        />
-      </LayersControl.Overlay>
-      <LayersControl.Overlay name="📏 Pipelines (GeoServer)">
-        <WMSTileLayer
-          url={url}
-          layers={`${ws}:waste_water_pipeline`}
-          format="image/png"
-          transparent={true}
-          opacity={0.7}
-          version="1.1.0"
-          srs="EPSG:4326"
-        />
-      </LayersControl.Overlay>
-      <LayersControl.Overlay name="🏘️ Suburbs (GeoServer)">
-        <WMSTileLayer
-          url={url}
-          layers={`${ws}:suburbs`}
-          format="image/png"
-          transparent={true}
-          opacity={0.5}
-          version="1.1.0"
-          srs="EPSG:4326"
-        />
-      </LayersControl.Overlay>
-    </LayersControl>
-  );
-}
-
-// ── MapView
 export default function MapView({ 
   manholes = [], 
   pipes = [], 
@@ -272,9 +172,7 @@ export default function MapView({
   onFeatureClick, 
   onMapReady, 
   navPickMode = false, 
-  onNavMapClick,
-  geoserverUrl: propGeoserverUrl,
-  workspace: propWorkspace
+  onNavMapClick 
 }) {
   const [coords, setCoords] = useState("");
   const [activeTiles, setActiveTiles] = useState(["osm"]);
@@ -301,7 +199,11 @@ export default function MapView({
     </button>
   ) : null;
 
-  const popupHeader = (dot, label) => (<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>{dot}<span style={{ fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>{label}</span></div>);
+  const popupHeader = (dot, label) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+      {dot}<span style={{ fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>{label}</span>
+    </div>
+  );
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -309,11 +211,8 @@ export default function MapView({
         <ZoomReposition />
         <MapBootstrap onMapReady={onMapReady} setCoords={setCoords} pickMode={navPickMode} onMapClick={onNavMapClick} />
         <TileManager activeTiles={activeTiles} />
-        
-        {/* GeoServer WMS Layers */}
-        <GeoServerLayers geoserverUrl={propGeoserverUrl} workspace={propWorkspace} />
 
-        {/* Existing Manhole Markers */}
+        {/* Manhole Markers */}
         {manholes.map((m) => {
           const pt = parsePoint(m.geom);
           if (!pt) return null;
@@ -331,7 +230,7 @@ export default function MapView({
           );
         })}
 
-        {/* Existing Pipeline Polylines */}
+        {/* Pipeline Polylines */}
         {pipes.map((p) => {
           const positions = parseLine(p.geom);
           if (!positions || positions.length < 2) return null;
