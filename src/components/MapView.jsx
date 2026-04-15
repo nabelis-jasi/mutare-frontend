@@ -126,4 +126,4 @@ function MapBootstrap({ onMapReady, setCoords, pickMode, onMapClick }) {
   });
 
   useEffect(() => {
-    map.getContainer().style.cursor = pickMode ? "crosshair
+    map.getContainer().style.cursor = pickMode ? "crosshair" : "";
