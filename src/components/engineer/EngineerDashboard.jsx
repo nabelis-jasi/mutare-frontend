@@ -1,5 +1,5 @@
 // src/components/engineer/EngineerDashboard.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from "../../api/api";
 import MapView from '../MapView';
 import AnalyticsDashboard from './AnalyticsDashboard';
@@ -14,7 +14,7 @@ import PendingEdits from './PendingEdits';
 import HomePanel from './HomePanel';
 import ProfilePanel from './ProfilePanel';
 import SettingsPanel from './SettingsPanel';
-import AnalysisTools from './AnalysisTools';  // new component
+import AnalysisTools from './AnalysisTools';
 
 // Drawers and modals
 import DrawerDownload from '../../containers/DrawerDownload';
@@ -35,10 +35,8 @@ export default function EngineerDashboard({ user, onLogout }) {
   const [selectedForm, setSelectedForm] = useState(null);
   const [uploadedLayers, setUploadedLayers] = useState([]);
   const [pendingEditCount, setPendingEditCount] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [mapInstance, setMapInstance] = useState(null); // Leaflet map instance
+  const [mapInstance, setMapInstance] = useState(null);
 
-  // Drawers and modals state
   const [drawerOpen, setDrawerOpen] = useState(null);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [modalDelete, setModalDelete] = useState({ isOpen: false, entryUuid: null, entryTitle: '' });
@@ -72,21 +70,6 @@ export default function EngineerDashboard({ user, onLogout }) {
     setUploadedLayers(prev => [...prev, newLayer]);
   };
 
-  // Handlers for drawers and modals (example implementations – replace with your actual logic)
-  const handleDownload = async (format, includeMedia) => {
-    setIsLoading(true);
-    // ... your download logic
-    setIsLoading(false);
-    setDrawerOpen(null);
-  };
-
-  const handleUpload = async (file) => {
-    setIsLoading(true);
-    // ... your upload logic
-    setIsLoading(false);
-    setDrawerOpen(null);
-  };
-
   const handleViewEntry = (headers, answers, entryTitle) => {
     setModalView({ isOpen: true, headers, answers, entryTitle });
   };
@@ -96,60 +79,32 @@ export default function EngineerDashboard({ user, onLogout }) {
   };
 
   const confirmDelete = async () => {
-    // ... delete logic
     setModalDelete({ isOpen: false, entryUuid: null, entryTitle: '' });
     handleDataRefresh();
   };
 
-  const handleEditEntry = (entryUuid) => {
-    // ... edit logic
-  };
-
   const renderContent = () => {
     switch (activeTab) {
-      case 'home':
-        return <HomePanel manholes={[]} pipes={[]} onNavigate={setActiveTab} onClose={() => {}} />;
-      case 'analytics':
-        return <AnalyticsDashboard onClose={() => setActiveTab('home')} />;
-      case 'editor':
-        return <DataEditor feature={selectedFeature} onSave={() => { setActiveTab('home'); handleDataRefresh(); }} onCancel={() => setActiveTab('home')} />;
-      case 'uploader':
-        return <ShapefileUploader map={mapInstance} onUploadComplete={handleDataRefresh} onClose={() => setActiveTab('home')} onGeoJsonLoaded={handleGeoJsonLoaded} />;
-      case 'analysis':
-        return <AnalysisTools map={mapInstance} onClose={() => setActiveTab('home')} />;
-      case 'sync':
-        return <DataSync userId={userId} onSyncComplete={handleDataRefresh} onClose={() => setActiveTab('home')} />;
-      case 'flags':
-        return <FlagManager onFlagManaged={handleDataRefresh} onClose={() => setActiveTab('home')} />;
-      case 'forms':
-        return !selectedForm ? (
+      case 'home': return <HomePanel manholes={[]} pipes={[]} onNavigate={setActiveTab} onClose={() => {}} />;
+      case 'analytics': return <AnalyticsDashboard onClose={() => setActiveTab('home')} />;
+      case 'editor': return <DataEditor feature={selectedFeature} onSave={() => { setActiveTab('home'); handleDataRefresh(); }} onCancel={() => setActiveTab('home')} />;
+      case 'uploader': return <ShapefileUploader map={mapInstance} onUploadComplete={handleDataRefresh} onClose={() => setActiveTab('home')} onGeoJsonLoaded={handleGeoJsonLoaded} />;
+      case 'analysis': return <AnalysisTools map={mapInstance} onClose={() => setActiveTab('home')} />;
+      case 'sync': return <DataSync userId={userId} onSyncComplete={handleDataRefresh} onClose={() => setActiveTab('home')} />;
+      case 'flags': return <FlagManager onFlagManaged={handleDataRefresh} onClose={() => setActiveTab('home')} />;
+      case 'forms': return !selectedForm ? (
           <FormList onSelectForm={setSelectedForm} onClose={() => setActiveTab('home')} onCreateNew={() => setSelectedForm({})} />
         ) : (
           <FormBuilder form={selectedForm} onSaved={() => { setSelectedForm(null); handleDataRefresh(); }} onCancel={() => setSelectedForm(null)} />
         );
-      case 'submissions':
-        return (
-          <SubmissionsList
-            onClose={() => setActiveTab('home')}
-            onRefresh={handleDataRefresh}
-            onViewEntry={handleViewEntry}
-            onDeleteEntry={handleDeleteEntry}
-            onEditEntry={handleEditEntry}
-            onOpenDrawer={setDrawerOpen}
-          />
-        );
-      case 'edits':
-        return <PendingEdits onClose={() => setActiveTab('home')} onEditProcessed={() => { fetchPendingCount(); handleDataRefresh(); }} />;
-      case 'profile':
-        return <ProfilePanel userId={userId} role={role} userProfile={userProfile} onClose={() => setActiveTab('home')} onLogout={onLogout} />;
-      case 'settings':
-        return <SettingsPanel onClose={() => setActiveTab('home')} />;
-      default:
-        return <HomePanel manholes={[]} pipes={[]} onNavigate={setActiveTab} onClose={() => {}} />;
+      case 'submissions': return <SubmissionsList onClose={() => setActiveTab('home')} onRefresh={handleDataRefresh} onViewEntry={handleViewEntry} onDeleteEntry={handleDeleteEntry} onOpenDrawer={setDrawerOpen} />;
+      case 'edits': return <PendingEdits onClose={() => setActiveTab('home')} onEditProcessed={() => { fetchPendingCount(); handleDataRefresh(); }} />;
+      case 'profile': return <ProfilePanel userId={userId} role={role} userProfile={userProfile} onClose={() => setActiveTab('home')} onLogout={onLogout} />;
+      case 'settings': return <SettingsPanel onClose={() => setActiveTab('home')} />;
+      default: return <HomePanel manholes={[]} pipes={[]} onNavigate={setActiveTab} onClose={() => {}} />;
     }
   };
 
-  // Inline styles (you already have them – keep as is)
   const styles = {
     root: {
       display: 'flex',
@@ -157,71 +112,78 @@ export default function EngineerDashboard({ user, onLogout }) {
       height: '100vh',
       width: '100vw',
       overflow: 'hidden',
-      fontFamily: 'system-ui, -apple-system, sans-serif'
+      background: '#f0f2f0', // Soft grey-green background
+      fontFamily: '"Segoe UI", Roboto, Helvetica, Arial, sans-serif'
     },
     topbar: {
-      background: 'white',
-      borderBottom: '1px solid #ddd',
+      background: '#0a4519', // Deep Forest Green
+      color: 'white',
       padding: '0 1.5rem',
-      height: '60px',
+      height: '65px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-      zIndex: 10
+      boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
+      zIndex: 100
     },
     mainLayout: {
       display: 'flex',
       flex: 1,
-      overflow: 'hidden'
+      overflow: 'hidden',
+      padding: '12px',
+      gap: '12px'
     },
     mapContainer: {
       flex: 2,
       position: 'relative',
-      background: '#e9ecef',
-      border: '2px solid black',
-      borderRadius: '4px',
-      margin: '8px',
-      overflow: 'hidden'
+      background: 'white',
+      border: '1px solid #cdd3ce',
+      borderRadius: '8px',
+      overflow: 'hidden',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
     },
     panelContainer: {
       flex: 1,
-      minWidth: '380px',
+      minWidth: '420px',
       maxWidth: '480px',
       background: 'white',
-      borderLeft: '1px solid #ddd',
+      borderRadius: '8px',
+      border: '1px solid #cdd3ce',
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
     },
     tabBar: {
-      display: 'flex',
-      background: '#f8fafc',
-      borderBottom: '1px solid #ddd',
-      padding: '0.5rem 0.75rem 0',
-      gap: '0.25rem',
-      overflowX: 'auto'
+      display: 'grid',
+      gridTemplateColumns: 'repeat(3, 1fr)', // Clean 3-column block grid
+      gap: '4px',
+      padding: '8px',
+      background: '#f8faf9',
+      borderBottom: '2px solid #0a4519'
     },
     tab: {
-      padding: '0.5rem 1rem',
+      padding: '12px 4px',
       background: 'white',
-      border: '1px solid #ddd',
-      borderBottom: 'none',
-      borderRadius: '8px 8px 0 0',
-      fontSize: '0.85rem',
-      fontWeight: 500,
-      color: '#6c757d',
+      border: '1px solid #e0e6e1',
+      borderRadius: '6px',
+      fontSize: '0.8rem',
+      fontWeight: '600',
+      color: '#444',
       cursor: 'pointer',
-      whiteSpace: 'nowrap',
-      transition: 'all 0.2s'
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '6px',
+      transition: 'all 0.2s ease',
+      position: 'relative'
     },
     activeTab: {
-      color: '#2c7da0',
-      borderColor: '#2c7da0',
-      borderBottomColor: 'white',
-      background: 'white',
-      position: 'relative',
-      zIndex: 1
+      background: '#0a4519',
+      color: 'white',
+      borderColor: '#0a4519',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
     },
     panelContent: {
       flex: 1,
@@ -229,47 +191,69 @@ export default function EngineerDashboard({ user, onLogout }) {
       padding: '1.25rem'
     },
     badge: {
-      background: '#e76f51',
+      background: '#d90429',
       color: 'white',
-      borderRadius: '12px',
-      padding: '0.1rem 0.4rem',
-      fontSize: '0.7rem',
-      marginLeft: '0.3rem'
+      borderRadius: '4px',
+      padding: '2px 6px',
+      fontSize: '0.65rem',
+      position: 'absolute',
+      top: '4px',
+      right: '4px'
+    },
+    topLabel: {
+      fontSize: '1.2rem',
+      fontWeight: '800',
+      letterSpacing: '0.5px',
+      color: '#ffffff'
+    },
+    subLabel: {
+      fontSize: '0.65rem',
+      color: '#a7c957',
+      textTransform: 'uppercase',
+      fontWeight: 'bold'
     }
   };
 
+  const tabs = [
+    { id: 'home', label: 'Home', icon: '🏠' },
+    { id: 'analytics', label: 'Analytics', icon: '📊' },
+    { id: 'forms', label: 'Forms', icon: '📝' },
+    { id: 'submissions', label: 'Records', icon: '📋' },
+    { id: 'edits', label: 'Edits', icon: '✏️', badge: pendingEditCount },
+    { id: 'flags', label: 'Flags', icon: '🚩' },
+    { id: 'uploader', label: 'Upload', icon: '📤' },
+    { id: 'analysis', label: 'Analysis', icon: '🧠' },
+    { id: 'sync', label: 'Sync', icon: '🔄' },
+  ];
+
   return (
     <div style={styles.root}>
-      {/* TOP BAR – simplified for brevity; keep your actual top bar content */}
       <header style={styles.topbar}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '1.8rem' }}>🪣</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span style={{ fontSize: '2rem', filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.3))' }}>🛠️</span>
           <div>
-            <div style={{ fontWeight: 700, fontSize: '1.2rem', color: '#2c7da0' }}>WWGIS</div>
-            <div style={{ fontSize: '0.7rem', color: '#6c757d' }}>Engineer Dashboard</div>
+            <div style={styles.topLabel}>MUTARE <span style={{color: '#a7c957'}}>GIS</span></div>
+            <div style={styles.subLabel}>Engineering Command Center</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          {/* Placeholder chips – you can add actual manhole/pipeline counts here */}
-          <div style={{ background: '#eef2f5', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem' }}>
-            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#2a9d8f', marginRight: '0.4rem' }}></span>
-            Manholes
+
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <div style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '5px 15px', borderRadius: '4px', fontSize: '0.8rem' }}>
+            <span style={{ color: '#a7c957' }}>●</span> Network: Stable
           </div>
-          <div style={{ background: '#eef2f5', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem' }}>
-            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#a7c957', marginRight: '0.4rem' }}></span>
-            Pipelines
+          <div style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '5px 15px', borderRadius: '4px', fontSize: '0.8rem' }}>
+             Role: <span style={{fontWeight: 'bold'}}>{role.toUpperCase()}</span>
           </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }} onClick={() => setActiveTab('profile')}>👤</button>
-          <button style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }} onClick={() => setActiveTab('settings')}>⚙️</button>
-          <button style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }} onClick={onLogout}>⎋</button>
-          <div style={{ background: '#2c7da0', color: 'white', padding: '0.2rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem' }}>{role}</div>
+          <button 
+            onClick={onLogout}
+            style={{ background: '#d90429', color: 'white', border: 'none', padding: '5px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            LOGOUT
+          </button>
         </div>
       </header>
 
       <div style={styles.mainLayout}>
-        {/* MAP */}
         <div style={styles.mapContainer}>
           <MapView
             uploadedLayers={uploadedLayers}
@@ -278,20 +262,19 @@ export default function EngineerDashboard({ user, onLogout }) {
           />
         </div>
 
-        {/* RIGHT PANEL */}
         <div style={styles.panelContainer}>
           <div style={styles.tabBar}>
-            <button style={{ ...styles.tab, ...(activeTab === 'home' ? styles.activeTab : {}) }} onClick={() => setActiveTab('home')}>🏠 Home</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'analytics' ? styles.activeTab : {}) }} onClick={() => setActiveTab('analytics')}>📊 Analytics</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'forms' ? styles.activeTab : {}) }} onClick={() => setActiveTab('forms')}>📝 Forms</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'submissions' ? styles.activeTab : {}) }} onClick={() => setActiveTab('submissions')}>📋 Submissions</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'edits' ? styles.activeTab : {}) }} onClick={() => setActiveTab('edits')}>
-              ✏️ Edits {pendingEditCount > 0 && <span style={styles.badge}>{pendingEditCount}</span>}
-            </button>
-            <button style={{ ...styles.tab, ...(activeTab === 'flags' ? styles.activeTab : {}) }} onClick={() => setActiveTab('flags')}>🚩 Flags</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'uploader' ? styles.activeTab : {}) }} onClick={() => setActiveTab('uploader')}>📤 Upload</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'analysis' ? styles.activeTab : {}) }} onClick={() => setActiveTab('analysis')}>🧠 Analysis</button>
-            <button style={{ ...styles.tab, ...(activeTab === 'sync' ? styles.activeTab : {}) }} onClick={() => setActiveTab('sync')}>🔄 Sync</button>
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                style={{ ...styles.tab, ...(activeTab === tab.id ? styles.activeTab : {}) }}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <span style={{ fontSize: '1.4rem' }}>{tab.icon}</span>
+                {tab.label}
+                {tab.badge > 0 && <span style={styles.badge}>{tab.badge}</span>}
+              </button>
+            ))}
           </div>
           <div style={styles.panelContent}>
             {renderContent()}
@@ -299,12 +282,10 @@ export default function EngineerDashboard({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Drawers and modals */}
-      {drawerOpen === 'download' && <DrawerDownload onClose={() => setDrawerOpen(null)} onDownload={handleDownload} />}
-      {drawerOpen === 'upload' && <DrawerUpload onClose={() => setDrawerOpen(null)} onUpload={handleUpload} />}
-      {drawerOpen === 'map' && selectedEntry && <DrawerMap entries={[selectedEntry]} onClose={() => setDrawerOpen(null)} />}
-      {drawerOpen === 'entry' && selectedEntry && <DrawerEntry entry={selectedEntry} onClose={() => setDrawerOpen(null)} />}
-
+      {/* Modals & Overlays */}
+      {drawerOpen === 'download' && <DrawerDownload onClose={() => setDrawerOpen(null)} onDownload={() => {}} />}
+      {drawerOpen === 'upload' && <DrawerUpload onClose={() => setDrawerOpen(null)} onUpload={() => {}} />}
+      
       <ModalDeleteEntry
         isOpen={modalDelete.isOpen}
         onClose={() => setModalDelete({ isOpen: false, entryUuid: null, entryTitle: '' })}
@@ -318,7 +299,7 @@ export default function EngineerDashboard({ user, onLogout }) {
         answers={modalView.answers}
         entryTitle={modalView.entryTitle}
       />
-      <WaitOverlay isVisible={isLoading} message="Processing..." />
+      <WaitOverlay isVisible={isLoading} message="Processing GIS Data..." />
     </div>
   );
 }
