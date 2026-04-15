@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import shp from 'shpjs';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
-// Updated imports for TanStack Table v8
 import { 
   useReactTable, 
   getCoreRowModel, 
@@ -59,7 +58,6 @@ export default function ShapefileUploader({ onUploadComplete, onClose }) {
     }
   };
 
-  // Internal Attribute Table Component using TanStack Table v8
   const AttributeTable = ({ data }) => {
     if (!data || !data.features || data.features.length === 0) return null;
 
@@ -68,13 +66,12 @@ export default function ShapefileUploader({ onUploadComplete, onClose }) {
       if (!firstFeature.properties) return [];
       return Object.keys(firstFeature.properties).map(key => ({
         header: key,
-        accessorKey: `properties.${key}`, // Use accessorKey for deep nested access
+        accessorKey: `properties.${key}`,
       }));
     }, [data]);
 
     const tableData = useMemo(() => data.features, [data]);
 
-    // Initialize the v8 Table
     const table = useReactTable({
       data: tableData,
       columns,
@@ -141,4 +138,8 @@ export default function ShapefileUploader({ onUploadComplete, onClose }) {
           {uploading ? 'Uploading...' : 'Upload & Add to Map'}
         </button>
         {error && <div className="wd-status err" style={{ color: 'red', marginTop: '10px', fontSize: '14px' }}>{error}</div>}
-        {geojson && <Attribute
+        {geojson && <AttributeTable data={geojson} />}
+      </div>
+    </div>
+  );
+}
