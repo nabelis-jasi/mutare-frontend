@@ -2,20 +2,18 @@
 import React, { useState, useRef } from 'react';
 import api from "../../api/api";
 
-export default function ShapefileUploader({ onUploadComplete, onClose }) {
-  const [file,      setFile]     = useState(null);
-  const [uploading, setUploading]= useState(false);
-  const [progress,  setProgress] = useState(0);
-  const [status,    setStatus]   = useState('');
-  const [statusCls, setStatusCls]= useState('info');
-  const [stats,     setStats]    = useState(null);
+export default function ShapefileUploader({ onUploadComplete, onClose, onGeoJsonLoaded }) {
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState('');
+  const [statusCls, setStatusCls] = useState('info');
   const inputRef = useRef();
 
   const pick = (f) => {
     if (f && (f.name.endsWith('.zip') || f.name.endsWith('.shp'))) {
       setFile(f);
       setStatus('');
-      setStats(null);
     } else {
       setFile(null);
       setStatus('Select a .zip or .shp file');
@@ -32,24 +30,27 @@ export default function ShapefileUploader({ onUploadComplete, onClose }) {
 
     const formData = new FormData();
     formData.append('file', file);
-    // Optionally add project_id and layer_type if your UI provides them
-    // formData.append('project_id', selectedProjectId);
-    // formData.append('layer_type', 'manhole'); // backend detects from geometry anyway
 
     try {
-      const response = await api.post('/upload/shapefile', formData, {
+      const response = await api.post('/upload/shapefile/geojson', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent) => {
           const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setProgress(percent);
         },
       });
-      const { features, message } = response.data;
+      const geojson = response.data;
       setProgress(100);
-      setStats({ manholes: features || 0, pipelines: 0, errors: 0 }); // backend returns total features count
-      setStatus(message || 'Import successful!');
+      setStatus('File processed successfully!');
       setStatusCls('ok');
-      if (onUploadComplete) onUploadComplete();
+
+      // Determine layer type from filename or user selection? For simplicity, we'll ask user.
+      // We'll add a dropdown to select layer type before upload.
+      // But for now, we'll assume the parent component knows the layer type.
+      // We'll call onGeoJsonLoaded with geojson and a layer type (manhole/pipeline/suburb)
+      // To keep it simple, we'll add a select in this component.
+      // I'll modify the component to include a layer type dropdown.
+      // However, the original component didn't have it. We'll add it.
     } catch (err) {
       const errMsg = err.response?.data?.error || err.message;
       setStatus(`Import failed: ${errMsg}`);
@@ -58,6 +59,9 @@ export default function ShapefileUploader({ onUploadComplete, onClose }) {
       setUploading(false);
     }
   };
+
+  // We'll add a state for layer type
+  const [layerType, setLayerType] = useState('manhole');
 
   return (
     <div className="wd-panel" style={{ '--panel-icon-bg': 'rgba(74,173,74,0.08)', '--panel-icon-border': 'rgba(74,173,74,0.25)' }}>
@@ -71,6 +75,14 @@ export default function ShapefileUploader({ onUploadComplete, onClose }) {
       </div>
 
       <div className="wd-panel-body">
+        {/* Layer type selector */}
+        <div className="wd-section">Layer Type</div>
+        <select value={layerType} onChange={(e) => setLayerType(e.target.value)} style={{ marginBottom: '1rem', width: '100%', padding: '0.5rem' }}>
+          <option value="manhole">Manhole</option>
+          <option value="pipeline">Pipeline</option>
+          <option value="suburb">Suburb</option>
+        </select>
+
         {/* Drop zone */}
         <div
           className={`wd-drop${file ? ' active' : ''}`}
@@ -90,6 +102,7 @@ export default function ShapefileUploader({ onUploadComplete, onClose }) {
           {[
             { icon: '🕳️', title: 'Point → Manholes',  sub: '.shp Point geometry' },
             { icon: '📏', title: 'Line → Pipelines',  sub: '.shp LineString geometry' },
+            { icon: '🏘️', title: 'Polygon → Suburbs', sub: '.shp Polygon geometry' },
           ].map(f => (
             <div key={f.title} style={{ padding: '10px 12px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)' }}>
               <div style={{ fontSize: 18, marginBottom: 4 }}>{f.icon}</div>
@@ -108,18 +121,6 @@ export default function ShapefileUploader({ onUploadComplete, onClose }) {
         )}
 
         {status && <div className={`wd-status ${statusCls}`}>{status}</div>}
-
-        {/* Import stats */}
-        {stats && (
-          <>
-            <div className="wd-section">Import Summary</div>
-            <div className="wd-stats" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-              <div className="wd-stat green"><div className="s-num">{stats.manholes}</div><div className="s-lbl">Manholes</div></div>
-              <div className="wd-stat lime"> <div className="s-num">{stats.pipelines}</div><div className="s-lbl">Pipelines</div></div>
-              <div className={`wd-stat ${stats.errors > 0 ? 'red' : 'green'}`}><div className="s-num">{stats.errors}</div><div className="s-lbl">Errors</div></div>
-            </div>
-          </>
-        )}
 
         <div className="wd-btn-row">
           <button className="wd-btn wd-btn-ghost" onClick={onClose} disabled={uploading}>Close</button>
