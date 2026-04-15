@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { MapContainer, TileLayer, GeoJSON, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import HeatmapLayer from "./HeatmapLayer"; // we'll create this if not exists
 
 // Fix default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -12,7 +13,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
-// Tile definitions – correct syntax
+// Tile definitions
 const TILES = {
   osm: {
     id: "osm",
@@ -141,7 +142,7 @@ function ZoomReposition() {
   return null;
 }
 
-// Tile selector (unchanged)
+// Tile selector
 function TileSelector({ activeTiles, setActiveTiles }) {
   const [expanded, setExpanded] = useState(false);
   const toggleTile = (id) =>
@@ -197,11 +198,32 @@ function TileSelector({ activeTiles, setActiveTiles }) {
   );
 }
 
+// HeatmapLayer component (if not already defined)
+// If you have a separate HeatmapLayer.jsx, you can import it; otherwise define inline
+const HeatmapLayer = ({ points, radius = 25, blur = 15, maxZoom = 17, minOpacity = 0.5 }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!points || points.length === 0) return;
+    // Dynamically import leaflet.heat to avoid build issues if not installed
+    import('leaflet.heat').then(() => {
+      const heat = L.heatLayer(points, { radius, blur, maxZoom, minOpacity });
+      heat.addTo(map);
+      return () => map.removeLayer(heat);
+    }).catch(err => console.warn("leaflet.heat not installed", err));
+  }, [map, points, radius, blur, maxZoom, minOpacity]);
+  return null;
+};
+
 // Main MapView component
-export default function MapView({ uploadedLayers = [], onFeatureClick }) {
+export default function MapView({ 
+  uploadedLayers = [], 
+  onFeatureClick, 
+  heatmapPoints = []   // NEW: array of [lat, lng, intensity] for heatmap
+}) {
   const [coords, setCoords] = useState("");
   const [activeTiles, setActiveTiles] = useState(["osm"]);
   const [showLegend, setShowLegend] = useState(true);
+  const mapRef = useRef(null);
 
   const glass = {
     background: "rgba(7,20,7,0.88)",
@@ -214,16 +236,17 @@ export default function MapView({ uploadedLayers = [], onFeatureClick }) {
   };
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+    <div style={{ position: "relative", width: "100%", height: "100%", border: "2px solid black", borderRadius: "4px", overflow: "hidden" }}>
       <MapContainer
         center={[-18.97, 32.67]}
         zoom={13}
         style={{ width: "100%", height: "100%" }}
         zoomControl={false}
         scrollWheelZoom
+        whenReady={() => {}}
       >
         <ZoomReposition />
-        <MapBootstrap onMapReady={() => {}} setCoords={setCoords} pickMode={false} onMapClick={() => {}} />
+        <MapBootstrap onMapReady={(map) => { mapRef.current = map; }} setCoords={setCoords} pickMode={false} onMapClick={() => {}} />
         <TileManager activeTiles={activeTiles} />
 
         {uploadedLayers.map((layer) => (
@@ -235,6 +258,8 @@ export default function MapView({ uploadedLayers = [], onFeatureClick }) {
             onEachFeature={(feature, layerObj) => onEachFeature(feature, layerObj, layer.type, onFeatureClick)}
           />
         ))}
+
+        {heatmapPoints.length > 0 && <HeatmapLayer points={heatmapPoints} />}
       </MapContainer>
 
       <TileSelector activeTiles={activeTiles} setActiveTiles={setActiveTiles} />
@@ -275,6 +300,10 @@ export default function MapView({ uploadedLayers = [], onFeatureClick }) {
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
             <div style={{ width: 16, height: 16, background: "#f4a261" }} />
             <span style={{ fontSize: 11, color: "#b8dcb8" }}>Suburb</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+            <div style={{ width: 16, height: 16, background: "#ff7800", borderRadius: "50%" }} />
+            <span style={{ fontSize: 11, color: "#b8dcb8" }}>Heatmap (Hotspots)</span>
           </div>
         </div>
       )}
