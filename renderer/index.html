@@ -4,10 +4,27 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mutare Sewer Asset Manager</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.0.1/leaflet-heat.js"></script>
-  <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
+  <!-- Leaflet (npm) -->
+  <link rel="stylesheet" href="../node_modules/leaflet/dist/leaflet.css" />
+  <script src="../node_modules/leaflet/dist/leaflet.js"></script>
+  <!-- Leaflet.heat (local plugin) -->
+  <script src="../plugins/leaflet.heat.js"></script>
+  <!-- jsPDF (npm) -->
+  <script src="../node_modules/jspdf/dist/jspdf.umd.min.js"></script>
+  <script src="../node_modules/jspdf-autotable/dist/jspdf.plugin.autotable.js"></script>
+  <!-- PDF.js v5 (ES module) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "pdfjs-dist": "../node_modules/pdfjs-dist/build/pdf.mjs"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as pdfjsLib from 'pdfjs-dist';
+    window.pdfjsLib = pdfjsLib;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '../node_modules/pdfjs-dist/build/pdf.worker.mjs';
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -26,7 +43,8 @@
 <div id="app" style="display: none;">
   <div class="toolbar">
     <button id="sync-btn">🔄 Sync Offline Logs</button>
-    <button id="pdf-report-btn">📄 Generate Weekly PDF Report</button>
+    <button id="pdf-view-btn">👁️ View Weekly Report</button>
+    <button id="pdf-save-btn">💾 Save Weekly Report</button>
     <span id="sync-status" class="status">✅ Synced</span>
   </div>
   <div class="tabs">
@@ -44,7 +62,7 @@
     </div>
   </div>
   
-  <!-- Layers tab (QGIS‑like) -->
+  <!-- Layers tab -->
   <div id="layers-tab" class="tab-content">
     <div style="display: flex; gap: 20px;">
       <div style="flex: 1; background: #1e3a1e; border-radius: 8px; padding: 10px;">
@@ -63,12 +81,29 @@
   <div id="reports-tab" class="tab-content">
     <h3>Weekly Maintenance Summary</h3>
     <div id="report-preview" style="background:#1e3a1e; padding:15px; border-radius:12px;">
-      <p>Use the button above to generate a PDF report.</p>
+      <p>Use the buttons above to view or save a PDF report.</p>
     </div>
   </div>
   
   <footer>Mutare City Council - Asset Management System | Forest Green Edition</footer>
 </div>
-<script src="renderer.js"></script>
+
+<!-- PDF Modal -->
+<div id="pdf-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; padding: 20px;">
+  <div style="background: #1e3a1e; border: 2px solid forestgreen; border-radius: 12px; width: 90%; height: 90%; margin: auto; display: flex; flex-direction: column;">
+    <div style="padding: 10px; display: flex; justify-content: space-between;">
+      <h3 style="color: forestgreen;">📄 PDF Viewer</h3>
+      <button id="close-pdf-modal" style="background: none; border: none; color: forestgreen; font-size: 24px;">&times;</button>
+    </div>
+    <canvas id="pdf-canvas" style="flex: 1; background: #0a1f0a; margin: 10px; border-radius: 8px;"></canvas>
+    <div style="padding: 10px; text-align: center;">
+      <button id="pdf-prev" style="margin-right: 10px;">◀ Previous</button>
+      <span id="page-num" style="color: forestgreen;">Page 1 / 1</span>
+      <button id="pdf-next" style="margin-left: 10px;">Next ▶</button>
+    </div>
+  </div>
+</div>
+
+<script src="renderer.js" type="module"></script>
 </body>
 </html>
