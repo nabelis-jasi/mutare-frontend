@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { background: #0a4519; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .setup-card { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 400px; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        .btn-connect { background: #a7c957; color: #0a4519; border: none; padding: 15px; width: 100%; font-weight: bold; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .status { margin-top: 15px; font-size: 13px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="setup-card">
+        <h2 style="color: #0a4519;">Database Setup</h2>
+        <p>Connect to your local PostgreSQL instance</p>
+        
+        <input type="text" id="host" placeholder="Host (e.g., localhost)" value="localhost">
+        <input type="text" id="user" placeholder="Postgres Username" value="postgres">
+        <input id="password" type="password" placeholder="Password">
+        <input type="text" id="database" placeholder="Database Name (e.g., mutare_gis)">
+        <input type="number" id="port" placeholder="Port" value="5432">
+        
+        <button class="btn-connect" onclick="attemptConnection()">Initialize GIS Suite</button>
+        <div id="msg" class="status">Waiting for connection...</div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        async function attemptConnection() {
+            const msg = document.getElementById('msg');
+            msg.innerText = "Testing connection...";
+            
+            const config = {
+                host: document.getElementById('host').value,
+                user: document.getElementById('user').value,
+                password: document.getElementById('password').value,
+                database: document.getElementById('database').value,
+                port: parseInt(document.getElementById('port').value)
+            };
+
+            const response = await ipcRenderer.invoke('save-config', config);
+
+            if (response.success) {
+                msg.style.color = "green";
+                msg.innerText = "Success! Redirecting...";
+                setTimeout(() => { window.location.href = "index.html"; }, 1500);
+            } else {
+                msg.style.color = "red";
+                msg.innerText = "Error: " + response.error;
+            }
+        }
+    </script>
+</body>
+</html>
