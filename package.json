@@ -1,7 +1,7 @@
 {
   "name": "sewer-frontend",
-  "version": "1.0.0",
-  "description": "Mutare City Council Sewer Asset Management System",
+  "version": "2.0.0",
+  "description": "QGIS‑like Sewer Asset Management for Mutare City Council",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
