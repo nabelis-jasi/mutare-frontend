@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mutare Sewer Command Center</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f0; margin: 0; display: flex; }
+        .sidebar { width: 250px; background: #0a4519; color: white; height: 100vh; padding: 20px; }
+        .main { flex: 1; padding: 20px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        .card { background: white; padding: 20px; border-radius: 8px; border-left: 5px solid #a7c957; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .card h3 { margin: 0; font-size: 12px; color: #666; }
+        .card p { font-size: 24px; font-weight: bold; margin: 10px 0; color: #0a4519; }
+        .btn-action { background: #0a4519; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Mutare GIS</h2>
+        <p>Network Overview</p>
+        <hr>
+        <button class="btn-action" style="width: 100%; text-align: left;">🏠 Dashboard Home</button>
+        <button class="btn-action" style="width: 100%; text-align: left;">🕳️ Asset Manager</button>
+        <button class="btn-action" style="width: 100%; text-align: left;">🔧 Job Logs</button>
+    </div>
+    <div class="main">
+        <h1>Network Status • <span id="current-date"></span></h1>
+        
+        <div class="stats-grid">
+            <div class="card">
+                <h3>🕳️ MANHOLES</h3>
+                <p id="mh-total">0</p>
+                <span style="color: red; font-size: 12px;">0 Blocked</span>
+            </div>
+            <div class="card">
+                <h3>📏 PIPELINES</h3>
+                <p id="pipe-total">0</p>
+                <span style="color: green; font-size: 12px;">Operational</span>
+            </div>
+            <div class="card">
+                <h3>🔧 MAINTENANCE</h3>
+                <p id="job-total">0</p>
+                <span style="color: orange; font-size: 12px;">Needs Attention</span>
+            </div>
+            <div class="card">
+                <h3>🚩 OPEN FLAGS</h3>
+                <p>0</p>
+                <span style="color: gray; font-size: 12px;">Pending Review</span>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; background: white; padding: 20px; border-radius: 8px;">
+            <h3>Quick Actions</h3>
+            <button class="btn-action">Select All Manholes in Suburb</button>
+            <button class="btn-action">Pipes < 150mm</button>
+            <button class="btn-action">Show Blocked Assets</button>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('current-date').innerText = new Date().toDateString();
+    </script>
+</body>
+</html>
