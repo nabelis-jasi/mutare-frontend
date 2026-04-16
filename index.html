@@ -1,40 +1,91 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <title>Mutare Sewer GIS - Command Center</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        .container { display: flex; height: 100vh; font-family: sans-serif; }
-        #map { flex: 2; height: 100%; border-right: 2px solid #0a4519; }
-        .sidebar { flex: 1; padding: 20px; background: #f4f7f4; overflow-y: auto; }
-        .log-form { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        input, select, button { width: 100%; margin: 5px 0; padding: 10px; }
-        button { background: #0a4519; color: white; border: none; font-weight: bold; cursor: pointer; }
+        :root { --forest: #0a4519; --lime: #a7c957; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; background: #f4f7f4; }
+        .sidebar { width: 280px; background: var(--forest); color: white; height: 100vh; padding: 20px; position: fixed; }
+        .main { margin-left: 320px; padding: 30px; width: 100%; }
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        .card { background: white; padding: 20px; border-radius: 10px; border-left: 5px solid var(--lime); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        #map { height: 450px; border-radius: 12px; margin-top: 20px; border: 2px solid var(--forest); }
+        .btn { background: var(--forest); color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-report { background: #d90429; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div id="map"></div>
-
-        <div class="sidebar">
-            <h2 style="color:#0a4519;">🔧 Sewer Job Log</h2>
-            <div class="log-form">
-                <input id="asset-id" placeholder="Manhole/Pipe ID">
-                <input id="operator" placeholder="Operator Name">
-                <select id="action">
-                    <option value="unblocking">Unblocking</option>
-                    <option value="inspection">Routine Inspection</option>
-                    <option value="repair">Structural Repair</option>
-                </select>
-                <button onclick="saveJobLog()">Submit Log to Local DB</button>
-            </div>
-
-            <hr>
-            <h3>📊 Network Health (Tableau View)</h3>
-            <div id="analytics-output">
-                </div>
+    <div class="sidebar">
+        <h2>🌳 Mutare GIS</h2>
+        <p>Asset Management Suite</p>
+        <hr style="opacity:0.2">
+        <div style="margin-top:20px;">
+            <button class="btn" onclick="generateReport()" style="width:100%; margin-bottom:10px;">📄 Generate Weekly PDF</button>
+            <button class="btn" onclick="toggleHeatmap()" style="width:100%;">🔥 Toggle Heatmap</button>
         </div>
     </div>
+
+    <div class="main">
+        <h1>Network Health Overview</h1>
+        <div class="grid">
+            <div class="card"><h3>Manholes</h3><p id="cnt-mh">0</p></div>
+            <div class="card"><h3>Pipelines (km)</h3><p id="cnt-p">0</p></div>
+            <div class="card"><h3>Active Jobs</h3><p id="cnt-j">0</p></div>
+            <div class="card"><h3>Risk Score</h3><p>Medium</p></div>
+        </div>
+
+        <div id="map"></div>
+
+        <div style="background:white; padding:20px; border-radius:10px; margin-top:20px;">
+            <h3>🔧 Epicollect Job Log</h3>
+            <input id="asset_id" placeholder="Asset ID">
+            <input id="op" placeholder="Operator">
+            <button class="btn" onclick="submitLog()">Save Record</button>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        const map = L.map('map').setView([-18.97, 32.65], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        async function loadDashboard() {
+            // Fetch Counts
+            const stats = await ipcRenderer.invoke('db-query', { sql: "SELECT type, count(*) FROM assets GROUP BY type", params: [] });
+            // Map the stats to HTML elements...
+            
+            // Fetch Heatmap Data (Repeat Blockages)
+            const hotspots = await ipcRenderer.invoke('db-query', { sql: "SELECT ST_X(geom) as x, ST_Y(geom) as y, frequency FROM blockage_hotspots", params: [] });
+            const heatData = hotspots.map(p => [p.y, p.x, p.frequency]);
+            L.heatLayer(heatData, {radius: 25}).addTo(map);
+        }
+
+        async function generateReport() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text("Mutare City Council: Sewer Maintenance Report", 10, 10);
+            doc.text("Generated: " + new Date().toLocaleString(), 10, 20);
+            // Query logs and add to PDF...
+            doc.save("Mutare_Sewer_Report.pdf");
+        }
+
+        async function submitLog() {
+            const id = document.getElementById('asset_id').value;
+            const op = document.getElementById('op').value;
+            await ipcRenderer.invoke('db-query', { 
+                sql: "INSERT INTO maintenance_logs (asset_id, operator) VALUES ($1, $2)", 
+                params: [id, op] 
+            });
+            alert("Log Synchronized to Local Postgres");
+            loadDashboard();
+        }
+
+        loadDashboard();
+    </script>
 </body>
 </html>
