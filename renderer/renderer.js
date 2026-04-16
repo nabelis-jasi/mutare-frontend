@@ -1,5 +1,9 @@
+// ----- Global state -----
 let map, heatLayer, markersLayer;
 let activeLayers = {}; // name -> L.geoJSON layer
+let pdfDoc = null;
+let currentPage = 1;
+let totalPages = 0;
 
 // ----- Wizard & Init -----
 async function checkFirstRun() {
@@ -63,7 +67,7 @@ async function initMap() {
   heatLayer = L.heatLayer(heatPoints, { radius: 25, blur: 15, maxZoom: 17 });
   heatLayer.addTo(map);
 
-  // Asset markers (from assets table with geometry)
+  // Asset markers
   const assets = await window.electronAPI.query(`
     SELECT id, asset_code, latitude, longitude FROM assets WHERE latitude IS NOT NULL
   `);
@@ -199,8 +203,8 @@ function updateActiveLayersList() {
   });
 }
 
-// ----- PDF Report -----
-async function generatePDFReport() {
+// ----- PDF Generation (jsPDF) -----
+async function generatePDFBlob() {
   const jobs = await window.electronAPI.query(`
     SELECT a.asset_code, jl.job_type, jl.resolution_time_hours, jl.date, jl.performed_by
     FROM job_logs jl
@@ -210,7 +214,7 @@ async function generatePDFReport() {
   `);
   if (!jobs.length) {
     alert('No jobs in the last 7 days.');
-    return;
+    return null;
   }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
@@ -232,8 +236,65 @@ async function generatePDFReport() {
   const finalY = doc.lastAutoTable.finalY + 10;
   doc.text(`Total jobs: ${total}`, 20, finalY);
   doc.text(`Average resolution time: ${avg.toFixed(1)} hours`, 20, finalY + 10);
-  doc.save(`Weekly_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+  return doc.output('arraybuffer');
 }
+
+// ----- PDF.js v5 Viewer -----
+async function showPDF(pdfData) {
+  const modal = document.getElementById('pdf-modal');
+  modal.style.display = 'flex';
+  const loadingTask = window.pdfjsLib.getDocument({ data: pdfData });
+  pdfDoc = await loadingTask.promise;
+  totalPages = pdfDoc.numPages;
+  document.getElementById('page-num').innerText = `Page 1 / ${totalPages}`;
+  currentPage = 1;
+  await renderPage(currentPage);
+}
+
+async function renderPage(pageNum) {
+  const page = await pdfDoc.getPage(pageNum);
+  const viewport = page.getViewport({ scale: 1.5 });
+  const canvas = document.getElementById('pdf-canvas');
+  const context = canvas.getContext('2d');
+  canvas.height = viewport.height;
+  canvas.width = viewport.width;
+  const renderContext = { canvasContext: context, viewport };
+  await page.render(renderContext).promise;
+  document.getElementById('page-num').innerText = `Page ${pageNum} / ${totalPages}`;
+}
+
+// ----- PDF Handlers -----
+async function viewReport() {
+  const pdfBuffer = await generatePDFBlob();
+  if (pdfBuffer) await showPDF(pdfBuffer);
+}
+async function saveReport() {
+  const pdfBuffer = await generatePDFBlob();
+  if (pdfBuffer) {
+    const blob = new Blob([pdfBuffer], { type: 'application/pdf' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Weekly_Report_${new Date().toISOString().slice(0,10)}.pdf`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+}
+
+// PDF Modal Navigation
+document.getElementById('pdf-prev')?.addEventListener('click', () => {
+  if (currentPage <= 1) return;
+  currentPage--;
+  renderPage(currentPage);
+});
+document.getElementById('pdf-next')?.addEventListener('click', () => {
+  if (currentPage >= totalPages) return;
+  currentPage++;
+  renderPage(currentPage);
+});
+document.getElementById('close-pdf-modal')?.addEventListener('click', () => {
+  document.getElementById('pdf-modal').style.display = 'none';
+  pdfDoc = null;
+});
 
 // ----- Offline Sync -----
 async function syncOfflineLogs() {
@@ -256,7 +317,8 @@ async function syncOfflineLogs() {
 async function initApp() {
   await initMap();
   document.getElementById('sync-btn').onclick = syncOfflineLogs;
-  document.getElementById('pdf-report-btn').onclick = generatePDFReport;
+  document.getElementById('pdf-view-btn').onclick = viewReport;
+  document.getElementById('pdf-save-btn').onclick = saveReport;
   document.getElementById('refresh-layers-btn')?.addEventListener('click', loadAvailableSpatialTables);
   await loadAvailableSpatialTables();
 }
