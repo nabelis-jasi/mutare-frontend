@@ -1,42 +1,39 @@
 {
-  "name": "mutare-sewer-command-center",
+  "name": "sewer-frontend",
   "version": "1.0.0",
-  "description": "Local GIS, Analytics, and Job Log Desktop Application for Mutare City Council",
+  "description": "Mutare City Council Sewer Asset Management System",
   "main": "main.js",
-  "author": "Mutare Engineering",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder",
-    "postinstall": "electron-builder install-app-deps"
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
   },
+  "author": "Mutare City Council",
+  "license": "MIT",
   "dependencies": {
+    "better-sqlite3": "^9.0.0",
+    "electron": "^28.0.0",
     "electron-store": "^8.1.0",
-    "pg": "^8.11.3",
-    "chart.js": "^4.4.1"
+    "pg": "^8.11.0"
   },
   "devDependencies": {
-    "electron": "^28.2.0",
-    "electron-builder": "^24.9.1"
+    "electron-builder": "^24.6.4"
   },
   "build": {
-    "appId": "com.mutare.sewergis",
-    "productName": "Mutare Sewer GIS",
-    "win": {
-      "target": "nsis",
-      "icon": "assets/icon.ico"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
+    "appId": "com.mutare.sewer",
+    "productName": "Sewer Asset Manager",
     "directories": {
       "output": "dist"
     },
     "files": [
       "**/*",
-      "!node_modules/*",
-      "node_modules/pg/**/*",
-      "node_modules/electron-store/**/*"
-    ]
+      "!**/*.map",
+      "!node_modules/.bin",
+      "!*.log"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/mutare_logo.png"
+    }
   }
 }
