@@ -9,7 +9,6 @@ const store = new Store();
 let mainWindow;
 let pgClient = null;
 
-// Credential handling
 ipcMain.handle('db:save-credentials', async (event, creds) => {
   store.set('pg', creds);
   const testClient = new Client(creds);
