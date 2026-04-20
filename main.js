@@ -40,26 +40,30 @@ console.log('Imports loaded:', {
 function renderComponents() {
     console.log('Rendering components...');
     
-    // LEFT PANEL
-    // Header
+    // LEFT PANEL - Header
     const headerContainer = document.getElementById('header-container');
     if (headerContainer && Header && Header.render) {
         headerContainer.innerHTML = Header.render();
+        console.log('Header rendered');
     }
     
-    // Layer Manager (Layer List with checkboxes) - LEFT PANEL
+    // LEFT PANEL - Filters (IMPORTANT: This renders the FILTER button and modal)
+    const filtersContainer = document.getElementById('filters-container');
+    if (filtersContainer && Filters && Filters.render) {
+        filtersContainer.innerHTML = Filters.render();
+        console.log('Filters HTML rendered - Filter button should appear');
+    } else {
+        console.error('Filters container or render method not found!');
+    }
+    
+    // LEFT PANEL - Layer Manager
     const layermanagerContainer = document.getElementById('layermanager-container');
     if (layermanagerContainer && LayerManager && LayerManager.render) {
         layermanagerContainer.innerHTML = LayerManager.render();
+        console.log('LayerManager rendered');
     }
     
-    // Filters (Accordion) - LEFT PANEL
-    const filtersContainer = document.getElementById('filters-container');
-    if (filtersContainer) {
-        filtersContainer.innerHTML = '<div id="accordion-filters-container" class="accordion-filters"></div>';
-    }
-    
-    // TOOLBAR WITH MENU ICON ADDED
+    // TOOLBAR WITH MENU ICON
     const toolbarContainer = document.getElementById('toolbar-container');
     if (toolbarContainer) {
         toolbarContainer.innerHTML = `
@@ -133,15 +137,15 @@ function initComponents() {
         console.error('MapView.init is not a function!', MapView);
     }
     
-    // Initialize Filters
+    // Initialize Filters (THIS ATTACHES THE CLICK EVENT TO THE FILTER BUTTON)
     if (Filters && typeof Filters.init === 'function') {
-        console.log('Initializing filters...');
+        console.log('Initializing filters - this attaches the click event to the FILTER button');
         Filters.init();
     } else {
         console.error('Filters.init is not a function!', Filters);
     }
     
-    // Initialize Layer Manager (for layer list and menu dropdown)
+    // Initialize Layer Manager
     if (LayerManager && typeof LayerManager.init === 'function') {
         console.log('Initializing layer manager...');
         LayerManager.init();
@@ -246,11 +250,10 @@ function setupEventListeners() {
         }
     });
     
-    // Listen for layer toggles from LayerManager
+    // Listen for layer toggles
     document.addEventListener('layerToggled', (event) => {
         const { layerId, visible } = event.detail;
         console.log(`Layer ${layerId} toggled: ${visible}`);
-        // Re-filter and update map
         if (Filters && Filters.getFilteredManholes) {
             const manholes = Filters.getFilteredManholes();
             const pipelines = Filters.getFilteredPipelines();
@@ -277,6 +280,7 @@ function init() {
     setupEventListeners();
     
     console.log('Dashboard ready!');
+    console.log('Click the "🔍 FILTER" button in the left panel to open the filter modal');
 }
 
 // Start the application
