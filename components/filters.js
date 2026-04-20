@@ -11,55 +11,56 @@
 let currentFilters = {
     // ===== PIPELINE FILTERS =====
     pipe_id: 'all',
-    pipe_mat: 'all',          // E/W, PVC, Concrete, etc.
-    pipe_size: 'all',         // 100, 150, 200, 250, 300, etc.
-    block_stat: 'all',        // blocked, critical, warning, good
-    class: 'all',             // pipe classification
-    inspector: 'all',         // who inspected
-    type: 'all',              // pipe type
-    length: 'all',            // length range
-    start_mh: 'all',          // starting manhole
-    end_mh: 'all',            // ending manhole
+    pipe_mat: 'all',
+    pipe_size: 'all',
+    block_stat: 'all',
+    class: 'all',
+    inspector: 'all',
+    type: 'all',
+    length: 'all',
+    start_mh: 'all',
+    end_mh: 'all',
     
     // ===== MANHOLE FILTERS =====
     manhole_id: 'all',
-    mh_depth: 'all',          // depth range
-    mh_type: 'all',           // manhole type
-    ground_lv: 'all',         // ground level
-    inv_lev: 'all',           // invert level
-    suburb_nam: 'all',        // suburb name
-    bloc_stat_mh: 'all',      // manhole blockage status
+    mh_depth: 'all',
+    mh_type: 'all',
+    ground_lv: 'all',
+    inv_lev: 'all',
+    suburb_nam: 'all',
+    bloc_stat_mh: 'all',
     
     // ===== SUBURB FILTERS =====
     suburb_name: 'all',
-    township: 'all',          // UTALI, etc.
-    ward: 'all',              // ward number
-    op_zone: 'all',           // operational zone
-    short_name: 'all',        // short code (BDV, YVL, WES)
+    township: 'all',
+    ward: 'all',
+    op_zone: 'all',
+    short_name: 'all',
     
     // ===== COMMON FILTERS =====
-    search_text: '',          // text search across all fields
-    date_from: 'all',         // inspection date from
-    date_to: 'all'            // inspection date to
+    search_text: '',
+    date_from: 'all',
+    date_to: 'all'
 };
 
 // Mock data for testing
 const allManholes = [
-    { id: 1, name: 'MH-001', suburb: 'CBD', diameter: 150, status: 'critical', blockages: 12, lat: -18.9735, lng: 32.6705 },
-    { id: 2, name: 'MH-002', suburb: 'Sakubva', diameter: 100, status: 'warning', blockages: 5, lat: -18.9750, lng: 32.6720 },
-    { id: 3, name: 'MH-003', suburb: 'Dangamvura', diameter: 80, status: 'good', blockages: 3, lat: -18.9780, lng: 32.6750 },
-    { id: 4, name: 'MH-004', suburb: 'CBD', diameter: 120, status: 'critical', blockages: 15, lat: -18.9700, lng: 32.6660 },
-    { id: 5, name: 'MH-005', suburb: 'Chikanga', diameter: 130, status: 'warning', blockages: 7, lat: -18.9650, lng: 32.6600 }
+    { id: 1, name: 'MH-001', suburb: 'CBD', diameter: 150, status: 'critical', blockages: 12, lat: -18.9735, lng: 32.6705, material: 'concrete', inspector: 'John Smith' },
+    { id: 2, name: 'MH-002', suburb: 'Sakubva', diameter: 100, status: 'warning', blockages: 5, lat: -18.9750, lng: 32.6720, material: 'PVC', inspector: 'Mary Jones' },
+    { id: 3, name: 'MH-003', suburb: 'Dangamvura', diameter: 80, status: 'good', blockages: 3, lat: -18.9780, lng: 32.6750, material: 'asbestos', inspector: 'Peter Moyo' },
+    { id: 4, name: 'MH-004', suburb: 'CBD', diameter: 120, status: 'critical', blockages: 15, lat: -18.9700, lng: 32.6660, material: 'concrete', inspector: 'John Smith' },
+    { id: 5, name: 'MH-005', suburb: 'Chikanga', diameter: 130, status: 'warning', blockages: 7, lat: -18.9650, lng: 32.6600, material: 'concrete', inspector: 'Tendai Ncube' },
+    { id: 6, name: 'MH-006', suburb: 'Yeovil', diameter: 90, status: 'good', blockages: 2, lat: -18.9680, lng: 32.6550, material: 'clay', inspector: 'Mary Jones' }
 ];
 
 const allPipelines = [
-    { id: 1, name: 'PL-001', status: 'warning', coordinates: [[-18.9735, 32.6705], [-18.9750, 32.6720]] },
-    { id: 2, name: 'PL-002', status: 'good', coordinates: [[-18.9750, 32.6720], [-18.9780, 32.6750]] },
-    { id: 3, name: 'PL-003', status: 'critical', coordinates: [[-18.9735, 32.6705], [-18.9700, 32.6660]] }
+    { id: 1, name: 'PL-001', pipe_id: '13373', pipe_mat: 'E/W', pipe_size: 150, block_stat: 'partial', class: 'Primary', inspector: 'John Smith', status: 'warning', coordinates: [[-18.9735, 32.6705], [-18.9750, 32.6720]] },
+    { id: 2, name: 'PL-002', pipe_id: '36047', pipe_mat: 'PVC', pipe_size: 200, block_stat: 'clear', class: 'Secondary', inspector: 'Mary Jones', status: 'good', coordinates: [[-18.9750, 32.6720], [-18.9780, 32.6750]] },
+    { id: 3, name: 'PL-003', pipe_id: '45218', pipe_mat: 'Concrete', pipe_size: 300, block_stat: 'blocked', class: 'Trunk', inspector: 'Peter Moyo', status: 'critical', coordinates: [[-18.9735, 32.6705], [-18.9700, 32.6660]] }
 ];
 
 // ============================================
-// 2. FILTER OPTIONS (from actual database)
+// 2. FILTER OPTIONS
 // ============================================
 
 const filterOptions = {
@@ -91,15 +92,96 @@ const filterOptions = {
 };
 
 // ============================================
-// 3. HELPER FUNCTIONS
+// 3. FILTER FUNCTIONS (FIXED - Actually filters data)
 // ============================================
 
 function getFilteredManholes() {
-    return allManholes;
+    return allManholes.filter(manhole => {
+        // Filter by suburb
+        if (currentFilters.suburb_nam !== 'all' && manhole.suburb !== currentFilters.suburb_nam) {
+            return false;
+        }
+        
+        // Filter by diameter
+        if (currentFilters.pipe_size !== 'all') {
+            const diameter = manhole.diameter || 0;
+            if (currentFilters.pipe_size === 'small' && diameter >= 100) return false;
+            if (currentFilters.pipe_size === 'medium' && (diameter < 100 || diameter > 150)) return false;
+            if (currentFilters.pipe_size === 'large' && diameter <= 150) return false;
+        }
+        
+        // Filter by material
+        if (currentFilters.pipe_mat !== 'all' && manhole.material !== currentFilters.pipe_mat) {
+            return false;
+        }
+        
+        // Filter by status
+        if (currentFilters.block_stat !== 'all' && manhole.status !== currentFilters.block_stat) {
+            return false;
+        }
+        
+        // Filter by inspector
+        if (currentFilters.inspector !== 'all' && manhole.inspector !== currentFilters.inspector) {
+            return false;
+        }
+        
+        // Filter by manhole ID
+        if (currentFilters.manhole_id !== 'all' && !manhole.name.toLowerCase().includes(currentFilters.manhole_id.toLowerCase())) {
+            return false;
+        }
+        
+        // Text search across multiple fields
+        if (currentFilters.search_text && currentFilters.search_text !== '') {
+            const searchLower = currentFilters.search_text.toLowerCase();
+            const matchesSearch = 
+                (manhole.name && manhole.name.toLowerCase().includes(searchLower)) ||
+                (manhole.suburb && manhole.suburb.toLowerCase().includes(searchLower)) ||
+                (manhole.status && manhole.status.toLowerCase().includes(searchLower)) ||
+                (manhole.material && manhole.material.toLowerCase().includes(searchLower));
+            if (!matchesSearch) return false;
+        }
+        
+        return true;
+    });
 }
 
 function getFilteredPipelines() {
-    return allPipelines;
+    return allPipelines.filter(pipeline => {
+        // Filter by pipe material
+        if (currentFilters.pipe_mat !== 'all' && pipeline.pipe_mat !== currentFilters.pipe_mat) {
+            return false;
+        }
+        
+        // Filter by pipe size
+        if (currentFilters.pipe_size !== 'all') {
+            const size = pipeline.pipe_size || 0;
+            if (currentFilters.pipe_size === 'small' && size >= 100) return false;
+            if (currentFilters.pipe_size === 'medium' && (size < 100 || size > 150)) return false;
+            if (currentFilters.pipe_size === 'large' && size <= 150) return false;
+        }
+        
+        // Filter by blockage status
+        if (currentFilters.block_stat !== 'all' && pipeline.block_stat !== currentFilters.block_stat) {
+            return false;
+        }
+        
+        // Filter by class
+        if (currentFilters.class !== 'all' && pipeline.class !== currentFilters.class) {
+            return false;
+        }
+        
+        // Filter by inspector
+        if (currentFilters.inspector !== 'all' && pipeline.inspector !== currentFilters.inspector) {
+            return false;
+        }
+        
+        // Filter by pipe ID
+        if (currentFilters.pipe_id !== 'all' && !pipeline.pipe_id.toLowerCase().includes(currentFilters.pipe_id.toLowerCase())) {
+            return false;
+        }
+        
+        return true;
+    });
 }
 
 function getAllManholes() {
@@ -318,6 +400,7 @@ function attachFilterEvents() {
     attachButtonFilters('suburb_name', '#suburb_nameFilters .filter-btn');
     attachButtonFilters('township', '#townshipFilters .filter-btn');
     attachButtonFilters('op_zone', '#op_zoneFilters .filter-btn');
+    attachButtonFilters('manhole_id', '#manhole_idFilters .filter-btn');
 }
 
 function updateTextFilter(filterType, value) {
@@ -328,16 +411,29 @@ function updateTextFilter(filterType, value) {
 
 function updateActiveFiltersDisplay() {
     const activeList = [];
-    if (currentFilters.pipe_id && currentFilters.pipe_id !== 'all') activeList.push(`Pipe: ${currentFilters.pipe_id}`);
+    
+    // Pipeline filters
+    if (currentFilters.pipe_id && currentFilters.pipe_id !== 'all') activeList.push(`Pipe ID: ${currentFilters.pipe_id}`);
     if (currentFilters.pipe_mat !== 'all') activeList.push(`Material: ${currentFilters.pipe_mat}`);
     if (currentFilters.pipe_size !== 'all') activeList.push(`Size: ${currentFilters.pipe_size}mm`);
     if (currentFilters.block_stat !== 'all') activeList.push(`Status: ${currentFilters.block_stat}`);
+    if (currentFilters.class !== 'all') activeList.push(`Class: ${currentFilters.class}`);
+    if (currentFilters.inspector !== 'all') activeList.push(`Inspector: ${currentFilters.inspector}`);
+    
+    // Manhole filters
     if (currentFilters.suburb_nam !== 'all') activeList.push(`Suburb: ${currentFilters.suburb_nam}`);
-    if (currentFilters.search_text) activeList.push(`Search: ${currentFilters.search_text}`);
+    if (currentFilters.manhole_id !== 'all') activeList.push(`Manhole: ${currentFilters.manhole_id}`);
+    
+    // Search
+    if (currentFilters.search_text && currentFilters.search_text !== '') activeList.push(`Search: "${currentFilters.search_text}"`);
     
     const activeDiv = document.getElementById('activeFilters');
     if (activeDiv) {
-        activeDiv.innerHTML = activeList.length === 0 ? 'No active filters (showing all)' : activeList.join(' | ');
+        if (activeList.length === 0) {
+            activeDiv.innerHTML = 'No active filters (showing all)';
+        } else {
+            activeDiv.innerHTML = activeList.join(' | ');
+        }
     }
 }
 
