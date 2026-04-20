@@ -1,33 +1,134 @@
 // ============================================
-// MAPVIEW.JS - Handles all map operations
+// MAPVIEW.JS - Advanced Map Component
+// Converted from React to Vanilla JS
+// Features: Multiple tile layers, custom markers, popups
 // ============================================
 
 let map = null;
-let currentMarkers = [];
-let currentLines = [];
-let currentPolygons = [];
+let currentManholes = [];
+let currentPipelines = [];
+let activeTileLayers = {};
 let heatLayer = null;
-let activeTileLayer = null;
+let currentCoords = '';
 
-// Initialize map
-function initMap(centerLat = -18.9735, centerLng = 32.6705, zoom = 13) {
+// Tile definitions
+const TILES = {
+    osm: {
+        id: 'osm',
+        label: 'Street',
+        icon: '🗺️',
+        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attr: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+    },
+    satellite: {
+        id: 'satellite',
+        label: 'Satellite',
+        icon: '🛰️',
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attr: 'Tiles &copy; Esri',
+        maxZoom: 19
+    },
+    hybrid: {
+        id: 'hybrid',
+        label: 'Hybrid',
+        icon: '🌍',
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        overlayUrl: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attr: 'Imagery &copy; Esri | Roads &copy; OSM',
+        maxZoom: 19
+    },
+    topo: {
+        id: 'topo',
+        label: 'Topo',
+        icon: '⛰️',
+        url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+        attr: 'Map data &copy; OSM | Style &copy; OpenTopoMap',
+        maxZoom: 17
+    }
+};
+
+// Color functions
+function getManholeColor(status) {
+    if (!status) return '#28a745';
+    const v = status.toLowerCase();
+    if (v.includes('block') || v.includes('critical')) return '#dc3545';
+    if (v.includes('warning') || v.includes('maintenance')) return '#ffc107';
+    return '#28a745';
+}
+
+function getPipeColor(status) {
+    if (!status) return '#2b7bff';
+    const v = status.toLowerCase();
+    if (v.includes('block') || v.includes('critical')) return '#dc3545';
+    if (v.includes('warning')) return '#ffc107';
+    return '#2b7bff';
+}
+
+// Custom manhole icon
+function createManholeIcon(color, size = 22) {
+    return L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="
+            background-color: ${color};
+            width: ${size}px;
+            height: ${size}px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: ${size / 2}px;
+        ">🕳️</div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        popupAnchor: [0, -(size / 2 + 4)]
+    });
+}
+
+// Parse geometry functions
+function parsePoint(geom) {
+    try {
+        const g = typeof geom === 'string' ? JSON.parse(geom) : geom;
+        if (!g) return null;
+        if (g.type === 'Point') return { lat: g.coordinates[1], lng: g.coordinates[0] };
+        if (g.type === 'MultiPoint') return { lat: g.coordinates[0][1], lng: g.coordinates[0][0] };
+    } catch (e) {}
+    return null;
+}
+
+function parseLine(geom) {
+    try {
+        const g = typeof geom === 'string' ? JSON.parse(geom) : geom;
+        if (!g) return null;
+        if (g.type === 'LineString') return g.coordinates.map(([x, y]) => [y, x]);
+        if (g.type === 'MultiLineString') {
+            return g.coordinates.flatMap(seg => seg.map(([x, y]) => [y, x]));
+        }
+    } catch (e) {}
+    return null;
+}
+
+// ============================================
+// MAP INITIALIZATION
+// ============================================
+
+function initMap(centerLat = -18.97, centerLng = 32.67, zoom = 13) {
     console.log('initMap called with:', centerLat, centerLng, zoom);
     
-    // Check if Leaflet is available
     if (typeof L === 'undefined') {
-        console.error('Leaflet (L) is not defined! Make sure Leaflet JS is loaded.');
+        console.error('Leaflet (L) is not defined!');
         return null;
     }
     
     const mapElement = document.getElementById('map');
     if (!mapElement) {
-        console.error('Map element with id "map" not found!');
+        console.error('Map element not found!');
         return null;
     }
     
-    // Check if map already exists
     if (map) {
-        console.log('Map already exists, removing old map...');
         map.remove();
         map = null;
     }
@@ -35,18 +136,24 @@ function initMap(centerLat = -18.9735, centerLng = 32.6705, zoom = 13) {
     try {
         map = L.map('map').setView([centerLat, centerLng], zoom);
         
-        activeTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors',
-            maxZoom: 19
+        // Add default OSM layer
+        activeTileLayers.osm = L.tileLayer(TILES.osm.url, {
+            attribution: TILES.osm.attr,
+            maxZoom: TILES.osm.maxZoom
         }).addTo(map);
         
+        // Scale control
         L.control.scale({ metric: true, imperial: false, position: 'bottomleft' }).addTo(map);
+        
+        // Zoom control reposition
         L.control.zoom({ position: 'bottomright' }).addTo(map);
         
+        // Track mouse position
         map.on('mousemove', function(e) {
+            currentCoords = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
             const coordStatus = document.getElementById('coordStatus');
             if (coordStatus) {
-                coordStatus.innerHTML = 'LAT: ' + e.latlng.lat.toFixed(6) + ' | LNG: ' + e.latlng.lng.toFixed(6) + ' | ZOOM: ' + map.getZoom();
+                coordStatus.innerHTML = `📍 ${currentCoords} | ZOOM: ${map.getZoom()}`;
             }
         });
         
@@ -59,222 +166,215 @@ function initMap(centerLat = -18.9735, centerLng = 32.6705, zoom = 13) {
     }
 }
 
-// Switch base map
-function switchBaseMap(tileType) {
+// ============================================
+// TILE MANAGEMENT
+// ============================================
+
+function setActiveTiles(tileIds) {
+    // Remove all existing tile layers
+    Object.values(activeTileLayers).forEach(layer => {
+        if (layer && map && map.hasLayer(layer)) {
+            map.removeLayer(layer);
+        }
+    });
+    activeTileLayers = {};
+    
+    // Add selected tile layers
+    tileIds.forEach(tileId => {
+        const tile = TILES[tileId];
+        if (tile && map) {
+            const baseLayer = L.tileLayer(tile.url, {
+                attribution: tile.attr,
+                maxZoom: tile.maxZoom
+            }).addTo(map);
+            activeTileLayers[tileId] = baseLayer;
+            
+            // For hybrid, add overlay
+            if (tileId === 'hybrid' && tile.overlayUrl) {
+                const overlayLayer = L.tileLayer(tile.overlayUrl, {
+                    opacity: 0.42
+                }).addTo(map);
+                activeTileLayers.hybridOverlay = overlayLayer;
+            }
+        }
+    });
+}
+
+function getTileSelectorHTML() {
+    return `
+        <div class="tile-selector" style="position: absolute; top: 12px; right: 12px; z-index: 1000;">
+            <div class="tile-selector-content" style="background: rgba(7,20,7,0.88); border-radius: 8px; padding: 6px;">
+                <button id="tileSelectorBtn" style="cursor: pointer; font-weight: 700; font-size: 12px; color: #8fdc00; background: transparent; border: 1px solid rgba(74,173,74,0.3); border-radius: 6px; padding: 4px 6px;">
+                    🌐 Maps ▼
+                </button>
+                <div id="tileDropdown" style="display: none; margin-top: 4px;">
+                    ${Object.values(TILES).map(t => `
+                        <button class="tile-option" data-tile="${t.id}" style="cursor: pointer; font-size: 11px; text-align: left; padding: 4px 6px; border-radius: 6px; background: transparent; color: #7ab87a; border: none; display: block; width: 100%;">
+                            ${t.icon} ${t.label}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function initTileSelector() {
+    const btn = document.getElementById('tileSelectorBtn');
+    const dropdown = document.getElementById('tileDropdown');
+    let activeTiles = ['osm'];
+    
+    if (btn) {
+        btn.addEventListener('click', () => {
+            if (dropdown) {
+                dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+            }
+        });
+    }
+    
+    document.querySelectorAll('.tile-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+            const tileId = opt.dataset.tile;
+            if (activeTiles.includes(tileId)) {
+                activeTiles = activeTiles.filter(t => t !== tileId);
+                opt.style.background = 'transparent';
+                opt.style.color = '#7ab87a';
+            } else {
+                activeTiles.push(tileId);
+                opt.style.background = '#4aad4a';
+                opt.style.color = '#011001';
+            }
+            setActiveTiles(activeTiles);
+        });
+    });
+}
+
+// ============================================
+// LOAD DATA LAYERS
+// ============================================
+
+function loadManholes(manholes) {
     if (!map) {
         console.error('Map not initialized');
         return;
     }
     
-    if (activeTileLayer) {
-        map.removeLayer(activeTileLayer);
+    // Clear existing manhole markers
+    if (window.manholeMarkers) {
+        window.manholeMarkers.forEach(m => map.removeLayer(m));
     }
+    window.manholeMarkers = [];
     
-    let url, attribution;
-    if (tileType === 'satellite') {
-        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-        attribution = 'Tiles &copy; Esri';
-    } else if (tileType === 'topo') {
-        url = 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png';
-        attribution = 'Map data &copy; OSM | Style &copy; OpenTopoMap';
-    } else {
-        url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-        attribution = '&copy; OpenStreetMap contributors';
-    }
+    if (!manholes || manholes.length === 0) return;
     
-    activeTileLayer = L.tileLayer(url, { attribution: attribution, maxZoom: 19 }).addTo(map);
-}
-
-// Load manholes (point layer)
-function loadManholes(manholes) {
-    if (!map) {
-        console.error('Map not initialized, cannot load manholes');
-        return;
-    }
-    
-    // Clear existing markers safely
-    for (let i = 0; i < currentMarkers.length; i++) {
-        if (currentMarkers[i] && map.hasLayer(currentMarkers[i])) {
-            map.removeLayer(currentMarkers[i]);
-        }
-    }
-    currentMarkers = [];
-    
-    if (!manholes || manholes.length === 0) {
-        console.log('No manholes to display');
-        return;
-    }
-    
-    console.log(`Loading ${manholes.length} manholes...`);
-    
-    for (let i = 0; i < manholes.length; i++) {
-        const m = manholes[i];
-        if (!m.lat || !m.lng) {
-            console.warn('Manhole missing coordinates:', m);
-            continue;
+    manholes.forEach(m => {
+        // Handle both direct lat/lng and geometry objects
+        let lat, lng;
+        if (m.geom) {
+            const pt = parsePoint(m.geom);
+            if (pt) { lat = pt.lat; lng = pt.lng; }
+        } else if (m.lat && m.lng) {
+            lat = m.lat; lng = m.lng;
         }
         
-        let color = '#28a745';
-        if (m.status === 'critical') color = '#dc3545';
-        else if (m.status === 'warning') color = '#ffc107';
+        if (!lat || !lng) return;
         
-        try {
-            const marker = L.circleMarker([m.lat, m.lng], {
-                radius: Math.min(8 + ((m.blockages || 0) / 3), 16),
-                color: color,
-                weight: 2,
-                fillColor: color,
-                fillOpacity: 0.7
-            });
-            
-            marker.bindPopup(`
-                <div style="min-width: 200px;">
-                    <b>🕳️ ${m.name || 'Manhole'}</b><br>
-                    Suburb: ${m.suburb || 'N/A'}<br>
-                    Diameter: ${m.diameter || 'N/A'}mm<br>
-                    Status: <span style="color:${color}">${(m.status || 'unknown').toUpperCase()}</span><br>
-                    Blockages: ${m.blockages || 0}
+        const color = getManholeColor(m.bloc_stat || m.status);
+        const marker = L.marker([lat, lng], {
+            icon: createManholeIcon(color, 22)
+        });
+        
+        const popupContent = `
+            <div style="min-width: 220px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                    <div style="width: 14px; height: 14px; border-radius: 50%; background: ${color};"></div>
+                    <span style="font-weight: 800; font-size: 14px;">${m.manhole_id || m.name || 'Manhole'}</span>
                 </div>
-            `);
-            
-            marker.addTo(map);
-            currentMarkers.push(marker);
-        } catch (error) {
-            console.error('Error adding marker:', error, m);
-        }
-    }
-    
-    console.log(`Loaded ${currentMarkers.length} manhole markers`);
+                <table style="width:100%; font-size: 12px; border-collapse: collapse;">
+                    <tr><td style="padding: 3px 8px 3px 0; font-weight: 600;">Pipe ID</td><td>${m.pipe_id || '—'}</td></tr>
+                    <tr><td style="padding: 3px 8px 3px 0; font-weight: 600;">Depth</td><td>${m.mh_depth ? m.mh_depth + ' m' : '—'}</td></tr>
+                    <tr><td style="padding: 3px 8px 3px 0; font-weight: 600;">Status</td><td style="color:${color}">${m.bloc_stat || m.status || 'Normal'}</td></tr>
+                </table>
+                <button onclick="window.editFeature && window.editFeature({...${JSON.stringify(m)}, type: 'manhole'})" style="margin-top: 10px; width: 100%; background: #1a4d1a; color: white; border: 1px solid #2d8a2d; border-radius: 6px; padding: 7px 0; cursor: pointer; font-weight: 700; font-size: 12px;">
+                    ✏️ Edit Record
+                </button>
+            </div>
+        `;
+        
+        marker.bindPopup(popupContent);
+        marker.addTo(map);
+        window.manholeMarkers.push(marker);
+    });
 }
 
-// Load pipelines (line layer)
 function loadPipelines(pipelines) {
     if (!map) {
-        console.error('Map not initialized, cannot load pipelines');
+        console.error('Map not initialized');
         return;
     }
     
-    // Clear existing lines safely
-    for (let i = 0; i < currentLines.length; i++) {
-        if (currentLines[i] && map.hasLayer(currentLines[i])) {
-            map.removeLayer(currentLines[i]);
-        }
+    // Clear existing pipeline lines
+    if (window.pipelineLines) {
+        window.pipelineLines.forEach(l => map.removeLayer(l));
     }
-    currentLines = [];
+    window.pipelineLines = [];
     
-    if (!pipelines || pipelines.length === 0) {
-        console.log('No pipelines to display');
-        return;
-    }
+    if (!pipelines || pipelines.length === 0) return;
     
-    console.log(`Loading ${pipelines.length} pipelines...`);
-    
-    for (let i = 0; i < pipelines.length; i++) {
-        const p = pipelines[i];
-        if (!p.coordinates || p.coordinates.length < 2) {
-            console.warn('Pipeline missing coordinates:', p);
-            continue;
+    pipelines.forEach(p => {
+        let positions;
+        if (p.geom) {
+            positions = parseLine(p.geom);
+        } else if (p.coordinates) {
+            positions = p.coordinates;
         }
         
-        let color = '#2b7bff';
-        if (p.status === 'critical') color = '#dc3545';
-        else if (p.status === 'warning') color = '#ffc107';
+        if (!positions || positions.length < 2) return;
         
-        try {
-            const line = L.polyline(p.coordinates, {
-                color: color,
-                weight: 5,
-                opacity: 0.8
-            });
-            
-            line.bindPopup(`
-                <div>
-                    <b>📏 ${p.name || 'Pipeline'}</b><br>
-                    Status: ${(p.status || 'normal').toUpperCase()}
+        const color = getPipeColor(p.block_stat || p.status);
+        const line = L.polyline(positions, {
+            color: color,
+            weight: 5,
+            opacity: 0.9
+        });
+        
+        const popupContent = `
+            <div style="min-width: 220px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                    <div style="width: 22px; height: 4px; background: ${color};"></div>
+                    <span style="font-weight: 800; font-size: 14px;">${p.pipe_id || p.name || 'Pipeline'}</span>
                 </div>
-            `);
-            
-            line.addTo(map);
-            currentLines.push(line);
-        } catch (error) {
-            console.error('Error adding pipeline:', error, p);
-        }
-    }
-    
-    console.log(`Loaded ${currentLines.length} pipeline lines`);
-}
-
-// Load suburbs (polygon layer)
-function loadSuburbs(suburbs) {
-    if (!map) {
-        console.error('Map not initialized, cannot load suburbs');
-        return;
-    }
-    
-    // Clear existing polygons safely
-    for (let i = 0; i < currentPolygons.length; i++) {
-        if (currentPolygons[i] && map.hasLayer(currentPolygons[i])) {
-            map.removeLayer(currentPolygons[i]);
-        }
-    }
-    currentPolygons = [];
-    
-    if (!suburbs || suburbs.length === 0) return;
-    
-    for (let i = 0; i < suburbs.length; i++) {
-        const s = suburbs[i];
-        if (!s.coordinates || s.coordinates.length < 3) continue;
+                <table style="width:100%; font-size: 12px; border-collapse: collapse;">
+                    <tr><td style="padding: 3px 8px 3px 0; font-weight: 600;">Start MH</td><td>${p.start_mh || '—'}</td></tr>
+                    <tr><td style="padding: 3px 8px 3px 0; font-weight: 600;">End MH</td><td>${p.end_mh || '—'}</td></tr>
+                    <tr><td style="padding: 3px 8px 3px 0; font-weight: 600;">Material</td><td>${p.pipe_mat || p.material || '—'}</td></tr>
+                    <tr><td style="padding: 3px 8px 3px 0; font-weight: 600;">Size</td><td>${p.pipe_size || p.diameter || '—'}</td></tr>
+                    <tr><td style="padding: 3px 8px 3px 0; font-weight: 600;">Status</td><td style="color:${color}">${p.block_stat || p.status || 'Normal'}</td></tr>
+                </table>
+                <button onclick="window.editFeature && window.editFeature({...${JSON.stringify(p)}, type: 'pipeline'})" style="margin-top: 10px; width: 100%; background: #1a4d1a; color: white; border: 1px solid #2d8a2d; border-radius: 6px; padding: 7px 0; cursor: pointer; font-weight: 700; font-size: 12px;">
+                    ✏️ Edit Record
+                </button>
+            </div>
+        `;
         
-        try {
-            const polygon = L.polygon(s.coordinates, {
-                color: '#ffc107',
-                weight: 2,
-                fillColor: '#ffc107',
-                fillOpacity: 0.15
-            });
-            
-            polygon.bindPopup(`
-                <div>
-                    <b>🏘️ ${s.name || 'Suburb'}</b><br>
-                    Area: ${s.area || 'N/A'} km²<br>
-                    Blockages: ${s.blockages || 0}
-                </div>
-            `);
-            
-            polygon.addTo(map);
-            currentPolygons.push(polygon);
-        } catch (error) {
-            console.error('Error adding polygon:', error, s);
-        }
-    }
-}
-
-// Update all layers at once
-function updateLayers(manholes, pipelines) {
-    console.log('updateLayers called with:', { 
-        manholesCount: manholes ? manholes.length : 0, 
-        pipelinesCount: pipelines ? pipelines.length : 0 
+        line.bindPopup(popupContent);
+        line.addTo(map);
+        window.pipelineLines.push(line);
     });
-    
+}
+
+function updateLayers(manholes, pipelines) {
     loadManholes(manholes || []);
     loadPipelines(pipelines || []);
 }
 
-// Add heatmap
+// ============================================
+// HEATMAP FUNCTIONS
+// ============================================
+
 function addHeatmap(heatPoints) {
-    if (!map) {
-        console.error('Map not initialized');
-        return;
-    }
-    
-    if (heatLayer) {
-        map.removeLayer(heatLayer);
-    }
-    
-    if (!heatPoints || heatPoints.length === 0) {
-        console.log('No heatmap points to display');
-        return;
-    }
+    if (!map) return;
+    if (heatLayer) map.removeLayer(heatLayer);
     
     heatLayer = L.heatLayer(heatPoints, {
         radius: 25,
@@ -285,64 +385,69 @@ function addHeatmap(heatPoints) {
     heatLayer.addTo(map);
 }
 
-// Show heatmap from current manholes
 function showHeatmapFromManholes(manholes) {
-    if (!manholes || manholes.length === 0) {
-        console.log('No manholes for heatmap');
-        return;
-    }
-    const heatPoints = manholes.map(m => [m.lat, m.lng, m.blockages || 1]);
+    if (!manholes || manholes.length === 0) return;
+    const heatPoints = manholes.map(m => {
+        let lat, lng;
+        if (m.geom) {
+            const pt = parsePoint(m.geom);
+            if (pt) { lat = pt.lat; lng = pt.lng; }
+        } else if (m.lat && m.lng) {
+            lat = m.lat; lng = m.lng;
+        }
+        return [lat, lng, m.blockages || m.bloc_count || 1];
+    }).filter(p => p[0] && p[1]);
     addHeatmap(heatPoints);
 }
 
-// Clear heatmap
 function clearHeatmap() {
-    if (heatLayer && map && map.hasLayer(heatLayer)) {
+    if (heatLayer && map) {
         map.removeLayer(heatLayer);
         heatLayer = null;
     }
 }
 
-// Fit map to show all assets
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
 function fitToBounds() {
-    if (!map) {
-        console.error('Map not initialized');
-        return;
-    }
-    
-    const allPoints = [];
-    for (let i = 0; i < currentMarkers.length; i++) {
-        if (currentMarkers[i] && currentMarkers[i].getLatLng) {
-            const latlng = currentMarkers[i].getLatLng();
-            allPoints.push([latlng.lat, latlng.lng]);
-        }
-    }
-    
-    if (allPoints.length > 0) {
-        const bounds = L.latLngBounds(allPoints);
+    if (!map) return;
+    const allMarkers = window.manholeMarkers || [];
+    if (allMarkers.length > 0) {
+        const bounds = L.latLngBounds(allMarkers.map(m => m.getLatLng()));
         map.fitBounds(bounds, { padding: [50, 50] });
     }
 }
 
-// Get map instance
 function getMap() {
     return map;
 }
 
+function injectTileSelector() {
+    const mapContainer = document.querySelector('.map-container');
+    if (mapContainer && !document.querySelector('.tile-selector')) {
+        mapContainer.insertAdjacentHTML('beforeend', getTileSelectorHTML());
+        initTileSelector();
+    }
+}
+
 // ============================================
-// EXPORTS (ES6 MODULE)
+// EXPORTS
 // ============================================
 
 export default {
     init: initMap,
-    switchBaseMap: switchBaseMap,
+    setActiveTiles: setActiveTiles,
     loadManholes: loadManholes,
     loadPipelines: loadPipelines,
-    loadSuburbs: loadSuburbs,
     updateLayers: updateLayers,
     addHeatmap: addHeatmap,
     showHeatmapFromManholes: showHeatmapFromManholes,
     clearHeatmap: clearHeatmap,
     fitToBounds: fitToBounds,
-    getMap: getMap
+    getMap: getMap,
+    injectTileSelector: injectTileSelector,
+    parsePoint: parsePoint,
+    parseLine: parseLine
 };
