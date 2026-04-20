@@ -199,25 +199,71 @@ function getCurrentFilters() {
     return currentFilters;
 }
 
+function getAllManholes() {
+    return allManholes;
+}
+
+function getAllPipelines() {
+    return allPipelines;
+}
+
 // ============================================
-// MODAL FUNCTIONS
+// MODAL FUNCTIONS - FIXED
 // ============================================
 
 let tempFilters = { ...currentFilters };
 
 function openFilterModal() {
+    console.log('Opening filter modal...');
     tempFilters = JSON.parse(JSON.stringify(currentFilters));
     updateModalUI();
     const modal = document.getElementById('filterModal');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+        modal.style.display = 'flex';
+        console.log('Modal displayed');
+    } else {
+        console.error('Modal element not found!');
+        // Try to create modal if not exists
+        createModalIfNotExists();
+    }
+}
+
+function createModalIfNotExists() {
+    const existingModal = document.getElementById('filterModal');
+    if (!existingModal) {
+        console.log('Creating modal dynamically...');
+        const modalHtml = `
+            <div id="filterModal" class="filter-modal" style="display:none;">
+                <div class="filter-modal-content">
+                    <div class="filter-modal-header">
+                        <h3>🔍 ADVANCED FILTERS</h3>
+                        <button id="closeFilterModal" class="close-modal">&times;</button>
+                    </div>
+                    <div class="filter-modal-body">
+                        <p>Filter options will appear here. Please refresh the page.</p>
+                    </div>
+                    <div class="filter-modal-footer">
+                        <button id="resetFiltersBtn" class="reset-btn">RESET ALL</button>
+                        <button id="applyFiltersBtn" class="apply-btn">APPLY FILTERS</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        attachEvents();
+        document.getElementById('filterModal').style.display = 'flex';
+    }
 }
 
 function closeFilterModal() {
     const modal = document.getElementById('filterModal');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 function applyFilters() {
+    console.log('Applying filters:', tempFilters);
     currentFilters = JSON.parse(JSON.stringify(tempFilters));
     updateFilterButtonText();
     closeFilterModal();
@@ -225,6 +271,7 @@ function applyFilters() {
 }
 
 function resetFilters() {
+    console.log('Resetting filters');
     tempFilters = {
         suburb: 'all', township: 'all', ward: 'all', op_zone: 'all',
         diameter: 'all', diameter_min: '', diameter_max: '', material: 'all',
@@ -239,6 +286,7 @@ function resetFilters() {
 }
 
 function updateTempFilter(filterType, value) {
+    console.log('Updating filter:', filterType, value);
     tempFilters[filterType] = value;
     updateModalUI();
 }
@@ -285,7 +333,8 @@ function updateModalUI() {
 }
 
 function updateButtonGroup(selector, attribute, activeValue) {
-    document.querySelectorAll(`${selector} .filter-btn`).forEach(btn => {
+    const buttons = document.querySelectorAll(selector);
+    buttons.forEach(btn => {
         const value = btn.getAttribute(attribute);
         if (value === activeValue) {
             btn.classList.add('active');
@@ -533,15 +582,28 @@ function render() {
 // ============================================
 
 function attachEvents() {
-    document.getElementById('mainFilterBtn')?.addEventListener('click', openFilterModal);
-    document.getElementById('closeFilterModal')?.addEventListener('click', closeFilterModal);
-    document.getElementById('applyFiltersBtn')?.addEventListener('click', applyFilters);
-    document.getElementById('resetFiltersBtn')?.addEventListener('click', resetFilters);
+    const mainBtn = document.getElementById('mainFilterBtn');
+    if (mainBtn) {
+        mainBtn.addEventListener('click', openFilterModal);
+        console.log('Main filter button attached');
+    }
+    
+    const closeBtn = document.getElementById('closeFilterModal');
+    if (closeBtn) closeBtn.addEventListener('click', closeFilterModal);
+    
+    const applyBtn = document.getElementById('applyFiltersBtn');
+    if (applyBtn) applyBtn.addEventListener('click', applyFilters);
+    
+    const resetBtn = document.getElementById('resetFiltersBtn');
+    if (resetBtn) resetBtn.addEventListener('click', resetFilters);
     
     // Close on outside click
-    document.getElementById('filterModal')?.addEventListener('click', (e) => {
-        if (e.target === document.getElementById('filterModal')) closeFilterModal();
-    });
+    const modal = document.getElementById('filterModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeFilterModal();
+        });
+    }
     
     // Attach all filter button events
     attachButtonEvents('#modalSuburbFilters', 'data-suburb', 'suburb');
@@ -560,15 +622,25 @@ function attachEvents() {
     attachButtonEvents('#modalDepthRangeFilters', 'data-depth_range', 'depth_range');
     
     // Input events
-    document.getElementById('diameterMinInput')?.addEventListener('input', (e) => updateTempFilter('diameter_min', e.target.value));
-    document.getElementById('diameterMaxInput')?.addEventListener('input', (e) => updateTempFilter('diameter_max', e.target.value));
-    document.getElementById('dateFromInput')?.addEventListener('input', (e) => updateTempFilter('date_from', e.target.value));
-    document.getElementById('dateToInput')?.addEventListener('input', (e) => updateTempFilter('date_to', e.target.value));
-    document.getElementById('searchTextInput')?.addEventListener('input', (e) => updateTempFilter('search_text', e.target.value));
+    const diamMin = document.getElementById('diameterMinInput');
+    if (diamMin) diamMin.addEventListener('input', (e) => updateTempFilter('diameter_min', e.target.value));
+    
+    const diamMax = document.getElementById('diameterMaxInput');
+    if (diamMax) diamMax.addEventListener('input', (e) => updateTempFilter('diameter_max', e.target.value));
+    
+    const dateFrom = document.getElementById('dateFromInput');
+    if (dateFrom) dateFrom.addEventListener('input', (e) => updateTempFilter('date_from', e.target.value));
+    
+    const dateTo = document.getElementById('dateToInput');
+    if (dateTo) dateTo.addEventListener('input', (e) => updateTempFilter('date_to', e.target.value));
+    
+    const searchText = document.getElementById('searchTextInput');
+    if (searchText) searchText.addEventListener('input', (e) => updateTempFilter('search_text', e.target.value));
 }
 
 function attachButtonEvents(selector, attribute, filterType) {
-    document.querySelectorAll(`${selector} .filter-btn`).forEach(btn => {
+    const buttons = document.querySelectorAll(selector);
+    buttons.forEach(btn => {
         btn.addEventListener('click', () => {
             const value = btn.getAttribute(attribute);
             updateTempFilter(filterType, value);
@@ -581,10 +653,15 @@ function attachButtonEvents(selector, attribute, filterType) {
 // ============================================
 
 function initFilters() {
+    console.log('Initializing enhanced filters...');
     attachEvents();
     updateFilterButtonText();
-    console.log('Enhanced filters initialized');
+    console.log('Filters initialized');
 }
+
+// ============================================
+// EXPORTS
+// ============================================
 
 export default {
     render: render,
