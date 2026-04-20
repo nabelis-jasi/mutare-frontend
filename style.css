@@ -459,110 +459,101 @@ input[type="date"].filter-input::-webkit-calendar-picker-indicator {
 }
 
 /* ============================================
-   DATABASE ICON STYLES (pgAdmin Style)
+   TOOLBAR DATABASE STATUS STYLES
    ============================================ */
 
-.db-status-container {
-    background: #1a3a1a;
-    border-radius: 8px;
-    padding: 12px;
-    border: 1px solid #2a4a2a;
-}
-
-.db-icon-container {
+.toolbar-db-status {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 8px;
+    background: #1a3a1a;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid forestgreen;
 }
 
-.db-icon {
+.toolbar-db-icon-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.toolbar-db-icon {
     position: relative;
-    width: 48px;
-    height: 48px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #0d2b0d;
-    border-radius: 12px;
-    transition: all 0.3s ease;
+    color: forestgreen;
 }
 
-.db-icon svg {
-    width: 32px;
-    height: 32px;
+.toolbar-db-icon.connected {
+    color: #28a745;
 }
 
-.db-icon.connected {
-    background: #1a4a1a;
-    box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
+.toolbar-db-icon.disconnected {
+    color: #dc3545;
 }
 
-.db-icon.disconnected {
-    background: #4a1a1a;
-    box-shadow: 0 0 10px rgba(220, 53, 69, 0.2);
+.toolbar-db-icon.unknown {
+    color: #ffc107;
 }
 
-.db-icon.unknown {
-    background: #3a3a1a;
-}
-
-.db-status-dot {
+.toolbar-db-status-dot {
     position: absolute;
     bottom: -2px;
     right: -2px;
-    width: 14px;
-    height: 14px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    border: 2px solid #0d2b0d;
+    border: 1px solid #1a3a1a;
 }
 
-.db-status-dot.status-connected {
+.toolbar-db-status-dot.status-connected {
     background: #28a745;
-    box-shadow: 0 0 5px #28a745;
 }
 
-.db-status-dot.status-disconnected {
+.toolbar-db-status-dot.status-disconnected {
     background: #dc3545;
 }
 
-.db-status-dot.status-unknown {
+.toolbar-db-status-dot.status-unknown {
     background: #ffc107;
 }
 
-.db-info {
-    flex: 1;
-}
-
-.db-name {
-    font-size: 1em;
-    font-weight: bold;
+.toolbar-db-text {
+    font-size: 0.7em;
     color: #7cb342;
 }
 
-.db-status-text {
-    font-size: 0.7em;
-    margin-top: 2px;
-}
-
-.db-config-btn {
-    width: 100%;
-    padding: 8px 12px;
-    background: #0d2b0d;
-    border: 1px solid forestgreen;
+.toolbar-db-btn {
+    background: none;
+    border: none;
     color: forestgreen;
-    border-radius: 6px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    transition: all 0.2s;
+    font-size: 1em;
+    padding: 2px 6px;
+    border-radius: 4px;
 }
 
-.db-config-btn:hover {
-    background: forestgreen;
-    color: #0a1f0a;
+.toolbar-db-btn:hover {
+    background: #2a4a2a;
+}
+
+/* Modal Close Button */
+.close-modal-btn {
+    background: none;
+    border: none;
+    color: forestgreen;
+    font-size: 24px;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+.close-modal-btn:hover {
+    color: #dc3545;
+}
 }
 
 /* Modal Styles */
