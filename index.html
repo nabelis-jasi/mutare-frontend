@@ -10,10 +10,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- Leaflet Draw (for editing) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-    
     <!-- Leaflet Heatmap -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.0.1/leaflet-heat.js"></script>
     
@@ -47,14 +43,15 @@
             width: 100vw;
         }
         
-        /* LEFT PANEL - FILTERS & LAYERS */
+        /* LEFT PANEL */
         .left-panel {
-            width: 340px;
+            width: 320px;
             background: #0d2b0d;
             border-right: 2px solid forestgreen;
             display: flex;
             flex-direction: column;
             overflow-y: auto;
+            z-index: 10;
         }
         
         .panel-header {
@@ -65,45 +62,41 @@
         }
         
         .panel-header h1 {
-            font-size: 1.3em;
+            font-size: 1.2em;
         }
         
         .panel-header p {
-            font-size: 0.75em;
+            font-size: 0.7em;
             margin-top: 5px;
+            opacity: 0.8;
         }
         
         .section {
-            padding: 15px;
+            padding: 12px;
             border-bottom: 1px solid #2a4a2a;
         }
         
         .section h3 {
-            font-size: 1em;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
+            font-size: 0.85em;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
             border-bottom: 1px solid forestgreen;
-        }
-        
-        /* FILTER BUTTONS */
-        .filter-group {
-            margin-bottom: 15px;
         }
         
         .filter-buttons {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 6px;
         }
         
         .filter-btn {
             background: #1a3a1a;
             border: 1px solid forestgreen;
             color: forestgreen;
-            padding: 6px 12px;
+            padding: 5px 10px;
             border-radius: 20px;
             cursor: pointer;
-            font-size: 0.75em;
+            font-size: 0.7em;
             transition: all 0.2s;
         }
         
@@ -116,42 +109,32 @@
             color: #0a1f0a;
         }
         
-        /* LAYER LIST */
         .layer-list {
-            max-height: 200px;
+            max-height: 180px;
             overflow-y: auto;
         }
         
         .layer-item {
             background: #1a3a1a;
-            margin: 5px 0;
-            padding: 8px;
+            margin: 4px 0;
+            padding: 6px 8px;
             border-radius: 4px;
             border-left: 3px solid forestgreen;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 0.85em;
+            font-size: 0.8em;
         }
         
-        .layer-controls button {
-            background: none;
-            border: none;
-            color: forestgreen;
-            cursor: pointer;
-            margin-left: 8px;
-        }
-        
-        /* BUTTONS */
         button {
             background: #1a3a1a;
             border: 1px solid forestgreen;
             color: forestgreen;
-            padding: 8px 12px;
+            padding: 6px 10px;
             border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
-            transition: all 0.2s;
+            font-size: 0.75em;
         }
         
         button:hover {
@@ -159,49 +142,54 @@
             color: #0a1f0a;
         }
         
-        /* ACTIVE FILTERS DISPLAY */
         .active-filter {
             background: #2a4a2a;
-            padding: 8px;
+            padding: 6px;
             border-radius: 4px;
-            margin-top: 10px;
-            font-size: 0.8em;
+            margin-top: 8px;
+            font-size: 0.7em;
             text-align: center;
         }
         
-        /* MAIN CONTENT */
+        /* MAIN CONTENT - MAP */
         .main-content {
             flex: 1;
             display: flex;
             flex-direction: column;
+            position: relative;
         }
         
         .toolbar {
             background: #1e3a1e;
-            padding: 10px;
+            padding: 8px;
             display: flex;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
             border-bottom: 1px solid forestgreen;
+            z-index: 5;
         }
         
         .map-container {
             flex: 1;
+            position: relative;
+            background: #0a1f0a;
         }
         
         #map {
             height: 100%;
             width: 100%;
+            background: #0a1f0a;
         }
         
         /* RIGHT PANEL */
         .right-panel {
-            width: 360px;
+            width: 340px;
             background: #0d2b0d;
             border-left: 2px solid forestgreen;
             display: flex;
             flex-direction: column;
             overflow-y: auto;
+            z-index: 10;
         }
         
         .tabs {
@@ -211,11 +199,12 @@
         
         .tab {
             flex: 1;
-            padding: 10px;
+            padding: 8px;
             text-align: center;
             cursor: pointer;
             background: #1a3a1a;
             font-weight: bold;
+            font-size: 0.8em;
         }
         
         .tab.active {
@@ -224,49 +213,52 @@
         }
         
         .tab-content {
-            padding: 15px;
+            padding: 12px;
             flex: 1;
             overflow-y: auto;
         }
         
         .chart-container {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             background: #1a3a1a;
             border-radius: 4px;
-            padding: 10px;
+            padding: 8px;
         }
         
         .chart-container h4 {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             text-align: center;
+            font-size: 0.8em;
         }
         
         canvas {
-            max-height: 180px;
+            max-height: 160px;
             width: 100%;
         }
         
         .status-bar {
             background: #1a3a1a;
-            padding: 5px 10px;
-            font-size: 0.7em;
+            padding: 4px 8px;
+            font-size: 0.65em;
             border-top: 1px solid forestgreen;
         }
         
         .stat-row {
             display: flex;
             justify-content: space-between;
-            padding: 6px 0;
+            padding: 5px 0;
             border-bottom: 1px solid #2a4a2a;
+            font-size: 0.75em;
         }
         
         .hotspot-item {
             background: #1a3a1a;
-            padding: 8px;
-            margin: 5px 0;
+            padding: 6px;
+            margin: 4px 0;
             border-radius: 4px;
             border-left: 3px solid forestgreen;
             cursor: pointer;
+            font-size: 0.75em;
         }
         
         .hotspot-item:hover {
@@ -294,22 +286,6 @@
             min-width: 300px;
         }
         
-        .modal-content select, .modal-content input {
-            width: 100%;
-            margin: 10px 0;
-            padding: 8px;
-            background: #0d2b0d;
-            border: 1px solid forestgreen;
-            color: forestgreen;
-            border-radius: 4px;
-        }
-        
-        .modal-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        
         ::-webkit-scrollbar {
             width: 6px;
         }
@@ -326,95 +302,78 @@
 </head>
 <body>
 <div class="dashboard">
-    <!-- LEFT PANEL: FILTERS & LAYERS -->
+    <!-- LEFT PANEL -->
     <div class="left-panel">
         <div class="panel-header">
             <h1>MUTARE SEWER ENGINEER</h1>
             <p>Click to Filter | No Query Needed</p>
         </div>
         
-        <!-- Filter by Suburb -->
         <div class="section">
             <h3>FILTER BY SUBURB</h3>
-            <div class="filter-group">
-                <div class="filter-buttons" id="suburbFilters">
-                    <button class="filter-btn active" data-suburb="all">ALL</button>
-                    <button class="filter-btn" data-suburb="CBD">CBD</button>
-                    <button class="filter-btn" data-suburb="Sakubva">SAKUBVA</button>
-                    <button class="filter-btn" data-suburb="Dangamvura">DANGAMVURA</button>
-                    <button class="filter-btn" data-suburb="Chikanga">CHIKANGA</button>
-                    <button class="filter-btn" data-suburb="Yeovil">YEOVIL</button>
-                </div>
+            <div class="filter-buttons" id="suburbFilters">
+                <button class="filter-btn active" data-suburb="all">ALL</button>
+                <button class="filter-btn" data-suburb="CBD">CBD</button>
+                <button class="filter-btn" data-suburb="Sakubva">SAKUBVA</button>
+                <button class="filter-btn" data-suburb="Dangamvura">DANGAMVURA</button>
+                <button class="filter-btn" data-suburb="Chikanga">CHIKANGA</button>
             </div>
         </div>
         
-        <!-- Filter by Diameter -->
         <div class="section">
-            <h3>FILTER BY DIAMETER (mm)</h3>
-            <div class="filter-group">
-                <div class="filter-buttons" id="diameterFilters">
-                    <button class="filter-btn active" data-diameter="all">ALL</button>
-                    <button class="filter-btn" data-diameter="small">&lt; 100 mm</button>
-                    <button class="filter-btn" data-diameter="medium">100 - 150 mm</button>
-                    <button class="filter-btn" data-diameter="large">&gt; 150 mm</button>
-                </div>
+            <h3>FILTER BY DIAMETER</h3>
+            <div class="filter-buttons" id="diameterFilters">
+                <button class="filter-btn active" data-diameter="all">ALL</button>
+                <button class="filter-btn" data-diameter="small">&lt; 100 mm</button>
+                <button class="filter-btn" data-diameter="medium">100-150 mm</button>
+                <button class="filter-btn" data-diameter="large">&gt; 150 mm</button>
             </div>
         </div>
         
-        <!-- Filter by Material -->
         <div class="section">
             <h3>FILTER BY MATERIAL</h3>
-            <div class="filter-group">
-                <div class="filter-buttons" id="materialFilters">
-                    <button class="filter-btn active" data-material="all">ALL</button>
-                    <button class="filter-btn" data-material="concrete">CONCRETE</button>
-                    <button class="filter-btn" data-material="PVC">PVC</button>
-                    <button class="filter-btn" data-material="asbestos">ASBESTOS</button>
-                    <button class="filter-btn" data-material="clay">CLAY</button>
-                </div>
+            <div class="filter-buttons" id="materialFilters">
+                <button class="filter-btn active" data-material="all">ALL</button>
+                <button class="filter-btn" data-material="concrete">CONCRETE</button>
+                <button class="filter-btn" data-material="PVC">PVC</button>
+                <button class="filter-btn" data-material="asbestos">ASBESTOS</button>
             </div>
         </div>
         
-        <!-- Filter by Risk Status -->
         <div class="section">
-            <h3>FILTER BY RISK STATUS</h3>
-            <div class="filter-group">
-                <div class="filter-buttons" id="statusFilters">
-                    <button class="filter-btn active" data-status="all">ALL</button>
-                    <button class="filter-btn" data-status="critical">CRITICAL (High Risk)</button>
-                    <button class="filter-btn" data-status="warning">WARNING (Medium Risk)</button>
-                    <button class="filter-btn" data-status="good">GOOD (Low Risk)</button>
-                </div>
+            <h3>FILTER BY STATUS</h3>
+            <div class="filter-buttons" id="statusFilters">
+                <button class="filter-btn active" data-status="all">ALL</button>
+                <button class="filter-btn" data-status="critical">CRITICAL</button>
+                <button class="filter-btn" data-status="warning">WARNING</button>
+                <button class="filter-btn" data-status="good">GOOD</button>
             </div>
         </div>
         
-        <!-- Active Filters Display -->
         <div class="section">
             <h3>ACTIVE FILTERS</h3>
-            <div id="activeFilters" class="active-filter">No active filters (showing all)</div>
-            <button id="clearAllFilters" style="width:100%; margin-top:10px;">CLEAR ALL FILTERS</button>
+            <div id="activeFilters" class="active-filter">No active filters</div>
+            <button id="clearAllFilters" style="width:100%; margin-top:8px;">CLEAR ALL</button>
         </div>
         
-        <!-- Map Layers -->
         <div class="section">
             <h3>MAP LAYERS</h3>
-            <button id="addLayerBtn" style="width:100%; margin-bottom:10px;">+ ADD POSTGIS LAYER</button>
+            <div class="filter-buttons" style="margin-bottom:8px;">
+                <button id="toggleManholesBtn">🕳️ Manholes</button>
+                <button id="togglePipelinesBtn">📏 Pipelines</button>
+                <button id="toggleSuburbsBtn">🏘️ Suburbs</button>
+            </div>
             <div id="layerList" class="layer-list">
                 <div class="layer-item">
-                    <span>🏠 Base Map (OSM)</span>
+                    <span>🗺️ Base Map</span>
                     <div class="layer-controls">
-                        <button class="toggle-layer" data-layer="base">Hide</button>
+                        <select id="baseMapSelect" style="background:#1a3a1a; border:1px solid forestgreen; color:forestgreen; padding:2px;">
+                            <option value="osm">Street</option>
+                            <option value="satellite">Satellite</option>
+                            <option value="topo">Topographic</option>
+                        </select>
                     </div>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Projects -->
-        <div class="section">
-            <h3>PROJECTS</h3>
-            <div style="display: flex; gap: 8px;">
-                <button id="saveProjectBtn" style="flex:1;">SAVE PROJECT</button>
-                <button id="loadProjectBtn" style="flex:1;">LOAD PROJECT</button>
             </div>
         </div>
     </div>
@@ -422,22 +381,21 @@
     <!-- MAIN CONTENT: MAP -->
     <div class="main-content">
         <div class="toolbar">
-            <button id="drawPointBtn">ADD POINT</button>
-            <button id="drawLineBtn">DRAW LINE</button>
-            <button id="editLayerBtn">EDIT</button>
-            <button id="deleteFeatureBtn">DELETE</button>
-            <button id="exportGeoJSONBtn">EXPORT GEOJSON</button>
-            <button id="printMapBtn">PRINT MAP</button>
+            <button id="fitBoundsBtn">🎯 FIT ALL</button>
+            <button id="heatmapBtn">🔥 SHOW HEATMAP</button>
+            <button id="clearHeatmapBtn">❌ CLEAR HEATMAP</button>
+            <button id="exportGeoJSONBtn">📎 EXPORT GEOJSON</button>
+            <button id="printMapBtn">🖨️ PRINT MAP</button>
         </div>
         <div class="map-container">
             <div id="map"></div>
         </div>
         <div class="status-bar">
-            <span id="coordStatus">READY | Click on any asset to see details</span>
+            <span id="coordStatus">READY | Map loaded</span>
         </div>
     </div>
     
-    <!-- RIGHT PANEL: ANALYTICS -->
+    <!-- RIGHT PANEL -->
     <div class="right-panel">
         <div class="tabs">
             <div class="tab active" data-tab="stats">STATISTICS</div>
@@ -462,12 +420,7 @@
         
         <div id="hotspots-tab" class="tab-content" style="display:none;">
             <div class="chart-container">
-                <h4>HEATMAP INTENSITY</h4>
-                <button id="generateHotspotsBtn" style="width:100%;">SHOW HOTSPOT HEATMAP</button>
-                <button id="clearHeatmapBtn" style="width:100%; margin-top:8px;">CLEAR HEATMAP</button>
-            </div>
-            <div class="chart-container">
-                <h4>PROBLEM ASSETS (Click to zoom)</h4>
+                <h4>PROBLEM ASSETS</h4>
                 <div id="problemAssetsList"></div>
             </div>
         </div>
@@ -475,31 +428,14 @@
         <div id="reports-tab" class="tab-content" style="display:none;">
             <div class="chart-container">
                 <h4>GENERATE REPORTS</h4>
-                <button id="weeklyReportBtn" style="width:100%; margin-bottom:8px;">WEEKLY SUMMARY PDF</button>
-                <button id="exportCSVBtn" style="width:100%;">EXPORT DATA AS CSV</button>
+                <button id="weeklyReportBtn" style="width:100%; margin-bottom:8px;">WEEKLY PDF</button>
+                <button id="exportCSVBtn" style="width:100%;">EXPORT CSV</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal for Adding Layer -->
-<div id="layerModal" class="modal">
-    <div class="modal-content">
-        <h3>ADD POSTGIS LAYER</h3>
-        <select id="layerType">
-            <option value="point">Point Layer (Manholes, Pump Stations)</option>
-            <option value="line">Line Layer (Pipelines, Roads)</option>
-            <option value="polygon">Polygon Layer (Suburbs, Boundaries)</option>
-        </select>
-        <input type="text" id="layerTableName" placeholder="Table name (e.g., waste_water_manhole)">
-        <input type="color" id="layerColor" value="#228B22">
-        <div class="modal-buttons">
-            <button id="confirmAddLayer">ADD LAYER</button>
-            <button id="closeModal">CANCEL</button>
-        </div>
-    </div>
-</div>
-
+<script src="mapview.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
