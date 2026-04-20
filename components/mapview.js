@@ -1,6 +1,7 @@
 // ============================================
 // MAPVIEW.JS - Working Map Component
 // Tile types: OSM, Satellite, Hybrid, Topographic
+// Dropdown style tile selector
 // ============================================
 
 let map = null;
@@ -47,6 +48,7 @@ const TILES = {
 
 let currentTileLayer = null;
 let currentOverlayLayer = null;
+let currentTileId = 'osm';
 
 // Initialize map
 function initMap(centerLat = -18.9735, centerLng = 32.6705, zoom = 13) {
@@ -86,9 +88,9 @@ function initMap(centerLat = -18.9735, centerLng = 32.6705, zoom = 13) {
         
         console.log('Map created successfully');
         
-        // Add tile selector after map is ready
+        // Add dropdown tile selector after map is ready
         setTimeout(() => {
-            addTileSelector();
+            addDropdownTileSelector();
         }, 100);
         
         return map;
@@ -127,9 +129,152 @@ function switchBaseMap(tileType) {
             opacity: 0.5
         }).addTo(map);
     }
+    
+    currentTileId = tileType;
+    
+    // Update dropdown button text
+    updateDropdownButtonText(tileType);
 }
 
-// Load manholes
+// Update dropdown button text
+function updateDropdownButtonText(tileType) {
+    const btnText = document.getElementById('selectedTileText');
+    if (btnText) {
+        const tile = TILES[tileType];
+        if (tile) {
+            btnText.innerHTML = `${tile.icon} ${tile.label}`;
+        }
+    }
+}
+
+// ============================================
+// DROPDOWN TILE SELECTOR
+// ============================================
+
+function addDropdownTileSelector() {
+    const mapContainer = document.querySelector('.map-container');
+    if (!mapContainer) {
+        console.error('Map container not found');
+        return;
+    }
+    
+    // Remove existing selector if any
+    const existing = document.querySelector('.dropdown-tile-selector');
+    if (existing) existing.remove();
+    
+    // Create dropdown container
+    const dropdownDiv = document.createElement('div');
+    dropdownDiv.className = 'dropdown-tile-selector';
+    dropdownDiv.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        font-family: 'Segoe UI', monospace;
+    `;
+    
+    // Dropdown HTML
+    dropdownDiv.innerHTML = `
+        <div style="position: relative;">
+            <button id="tileDropdownBtn" style="
+                background: rgba(10, 26, 10, 0.95);
+                backdrop-filter: blur(8px);
+                border: 1px solid forestgreen;
+                border-radius: 6px;
+                padding: 8px 12px;
+                cursor: pointer;
+                font-size: 12px;
+                font-weight: bold;
+                color: #8fdc00;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-width: 130px;
+            ">
+                <span id="selectedTileText">🗺️ Street</span>
+                <span style="font-size: 10px;">▼</span>
+            </button>
+            <div id="tileDropdownMenu" style="
+                display: none;
+                position: absolute;
+                top: 100%;
+                right: 0;
+                margin-top: 4px;
+                background: rgba(10, 26, 10, 0.95);
+                backdrop-filter: blur(8px);
+                border: 1px solid forestgreen;
+                border-radius: 6px;
+                min-width: 150px;
+                overflow: hidden;
+                z-index: 1001;
+            ">
+                ${Object.values(TILES).map(tile => `
+                    <div class="tile-dropdown-item" data-tile="${tile.id}" style="
+                        padding: 8px 12px;
+                        cursor: pointer;
+                        font-size: 12px;
+                        color: #7ab87a;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        transition: all 0.2s;
+                        border-bottom: 1px solid #1a3a1a;
+                    ">
+                        <span>${tile.icon}</span>
+                        <span>${tile.label}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    
+    mapContainer.appendChild(dropdownDiv);
+    
+    // Get elements
+    const dropdownBtn = document.getElementById('tileDropdownBtn');
+    const dropdownMenu = document.getElementById('tileDropdownMenu');
+    
+    // Toggle dropdown on button click
+    if (dropdownBtn) {
+        dropdownBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isVisible = dropdownMenu.style.display === 'block';
+            dropdownMenu.style.display = isVisible ? 'none' : 'block';
+        });
+    }
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (dropdownDiv && !dropdownDiv.contains(e.target)) {
+            dropdownMenu.style.display = 'none';
+        }
+    });
+    
+    // Add click handlers to dropdown items
+    document.querySelectorAll('.tile-dropdown-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const tileId = item.dataset.tile;
+            switchBaseMap(tileId);
+            dropdownMenu.style.display = 'none';
+            
+            // Update active style
+            document.querySelectorAll('.tile-dropdown-item').forEach(i => {
+                i.style.background = 'transparent';
+                i.style.color = '#7ab87a';
+            });
+            item.style.background = '#2a4a2a';
+            item.style.color = '#8fdc00';
+        });
+    });
+    
+    console.log('Dropdown tile selector added');
+}
+
+// ============================================
+// LOAD MANHOLES
+// ============================================
+
 function loadManholes(manholes) {
     if (!map) return;
     
@@ -155,10 +300,12 @@ function loadManholes(manholes) {
         });
         
         marker.bindPopup(`
-            <b>${m.name}</b><br>
-            Suburb: ${m.suburb}<br>
-            Status: ${m.status}<br>
-            Blockages: ${m.blockages}
+            <div style="min-width: 180px;">
+                <b>🕳️ ${m.name}</b><br>
+                Suburb: ${m.suburb}<br>
+                Status: <span style="color:${color}">${m.status}</span><br>
+                Blockages: ${m.blockages}
+            </div>
         `);
         
         marker.addTo(map);
@@ -168,7 +315,10 @@ function loadManholes(manholes) {
     console.log(`Loaded ${currentManholeMarkers.length} manholes`);
 }
 
-// Load pipelines
+// ============================================
+// LOAD PIPELINES
+// ============================================
+
 function loadPipelines(pipelines) {
     if (!map) return;
     
@@ -190,7 +340,7 @@ function loadPipelines(pipelines) {
             opacity: 0.8
         });
         
-        line.bindPopup(`<b>${p.name}</b><br>Status: ${p.status}`);
+        line.bindPopup(`<b>📏 ${p.name}</b><br>Status: ${p.status}`);
         line.addTo(map);
         currentPipelineLines.push(line);
     });
@@ -228,90 +378,6 @@ function fitToBounds() {
 
 function getMap() {
     return map;
-}
-
-// ============================================
-// TILE SELECTOR UI - Fixed Version
-// ============================================
-
-function addTileSelector() {
-    const mapContainer = document.querySelector('.map-container');
-    if (!mapContainer) {
-        console.error('Map container not found');
-        return;
-    }
-    
-    // Remove existing selector if any
-    const existing = document.querySelector('.custom-tile-selector');
-    if (existing) existing.remove();
-    
-    // Create selector div
-    const selectorDiv = document.createElement('div');
-    selectorDiv.className = 'custom-tile-selector';
-    selectorDiv.style.cssText = `
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        z-index: 1000;
-        background: rgba(10, 26, 10, 0.9);
-        border-radius: 8px;
-        padding: 5px;
-        backdrop-filter: blur(5px);
-        border: 1px solid forestgreen;
-    `;
-    
-    // Create buttons for each tile type
-    const buttonsHtml = Object.values(TILES).map(tile => `
-        <button class="tile-btn" data-tile="${tile.id}" style="
-            display: block;
-            width: 100%;
-            margin: 3px 0;
-            padding: 6px 12px;
-            background: #1a3a1a;
-            border: 1px solid forestgreen;
-            color: forestgreen;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 11px;
-            text-align: left;
-        ">
-            ${tile.icon} ${tile.label}
-        </button>
-    `).join('');
-    
-    selectorDiv.innerHTML = `
-        <div style="padding: 3px;">
-            <div style="font-size: 10px; color: #7cb342; text-align: center; margin-bottom: 5px;">MAP STYLES</div>
-            ${buttonsHtml}
-        </div>
-    `;
-    
-    mapContainer.appendChild(selectorDiv);
-    
-    // Add event listeners to buttons
-    document.querySelectorAll('.tile-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tileId = btn.dataset.tile;
-            switchBaseMap(tileId);
-            
-            // Highlight active button
-            document.querySelectorAll('.tile-btn').forEach(b => {
-                b.style.background = '#1a3a1a';
-                b.style.color = 'forestgreen';
-            });
-            btn.style.background = 'forestgreen';
-            btn.style.color = '#0a1f0a';
-        });
-    });
-    
-    // Highlight OSM as default
-    const osmBtn = document.querySelector('.tile-btn[data-tile="osm"]');
-    if (osmBtn) {
-        osmBtn.style.background = 'forestgreen';
-        osmBtn.style.color = '#0a1f0a';
-    }
-    
-    console.log('Tile selector added');
 }
 
 // ============================================
