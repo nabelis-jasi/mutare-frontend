@@ -466,7 +466,7 @@ input[type="date"].filter-input::-webkit-calendar-picker-indicator {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #1a3a1a;
+    background: #1A8A6A;
     padding: 4px 10px;
     border-radius: 20px;
     border: 1px solid forestgreen;
@@ -825,7 +825,7 @@ body {
 }
 
 .toolbar button {
-    background: #c0c0c0;
+    background: #1A8A6A;
     border: 1px solid forestgreen;
     color: forestgreen;
     padding: 6px 14px;
