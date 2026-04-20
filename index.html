@@ -6,105 +6,24 @@
     <title>Mutare Sewer Engineering Dashboard</title>
     <link rel="icon" href="data:,">
     
+    <!-- Leaflet Core -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Leaflet Plugins -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.0.1/leaflet-heat.js"></script>
+    
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- PapaParse for CSV -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <!-- jsPDF for reports -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
     
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; color: forestgreen; }
-        body { font-family: 'Segoe UI', monospace; background: #0a1f0a; overflow: hidden; }
-        .dashboard { display: flex; height: 100vh; width: 100vw; }
-        
-        /* LEFT PANEL */
-        .left-panel { width: 340px; background: #0d2b0d; border-right: 2px solid forestgreen; display: flex; flex-direction: column; overflow-y: auto; }
-        .panel-header { padding: 15px; background: #1e3a1e; border-bottom: 2px solid forestgreen; text-align: center; }
-        .panel-header h1 { font-size: 1.2em; }
-        .panel-header p { font-size: 0.7em; margin-top: 5px; opacity: 0.8; }
-        
-        /* ACCORDION STYLES */
-        .accordion-section { border-bottom: 1px solid #2a4a2a; }
-        .accordion-header { 
-            padding: 12px; 
-            cursor: pointer; 
-            background: #1a3a1a;
-            font-weight: bold;
-            font-size: 0.85em;
-            transition: all 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .accordion-header:hover { background: #2a4a2a; }
-        .accordion-header .arrow { font-size: 1em; transition: transform 0.2s; }
-        .accordion-header.active .arrow { transform: rotate(90deg); }
-        .accordion-content { 
-            max-height: 0; 
-            overflow: hidden; 
-            transition: max-height 0.3s ease-out;
-            background: #0d2b0d;
-        }
-        .accordion-content.active { max-height: 300px; overflow-y: auto; }
-        .accordion-content-inner { padding: 12px; }
-        
-        .filter-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
-        .filter-btn { 
-            background: #1a3a1a; 
-            border: 1px solid forestgreen; 
-            color: forestgreen; 
-            padding: 5px 10px; 
-            border-radius: 20px; 
-            cursor: pointer; 
-            font-size: 0.7em; 
-            transition: all 0.2s;
-        }
-        .filter-btn:hover { background: #2a4a2a; }
-        .filter-btn.active { background: forestgreen; color: #0a1f0a; }
-        
-        button { 
-            background: #1a3a1a; 
-            border: 1px solid forestgreen; 
-            color: forestgreen; 
-            padding: 6px 10px; 
-            border-radius: 4px; 
-            cursor: pointer; 
-            font-size: 0.75em; 
-            transition: all 0.2s;
-        }
-        button:hover { background: forestgreen; color: #0a1f0a; }
-        
-        .active-filter { background: #2a4a2a; padding: 8px; border-radius: 4px; margin-top: 8px; font-size: 0.7em; text-align: center; }
-        
-        /* MAIN CONTENT */
-        .main-content { flex: 1; display: flex; flex-direction: column; }
-        .toolbar { background: #1e3a1e; padding: 8px; display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid forestgreen; }
-        .map-container { flex: 1; background: #0a1f0a; }
-        #map { height: 100%; width: 100%; background: #0a1f0a; }
-        
-        /* RIGHT PANEL */
-        .right-panel { width: 360px; background: #0d2b0d; border-left: 2px solid forestgreen; display: flex; flex-direction: column; overflow-y: auto; }
-        .tabs { display: flex; border-bottom: 1px solid forestgreen; }
-        .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; background: #1a3a1a; font-weight: bold; font-size: 0.8em; }
-        .tab.active { background: forestgreen; color: #0a1f0a; }
-        .tab-content { padding: 12px; flex: 1; overflow-y: auto; }
-        .chart-container { margin-bottom: 15px; background: #1a3a1a; border-radius: 4px; padding: 10px; }
-        .chart-container h4 { margin-bottom: 8px; text-align: center; font-size: 0.8em; }
-        canvas { max-height: 160px; width: 100%; }
-        .status-bar { background: #1a3a1a; padding: 4px 8px; font-size: 0.65em; border-top: 1px solid forestgreen; }
-        .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #2a4a2a; font-size: 0.75em; }
-        
-        .layer-buttons { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
-        .layer-item { background: #1a3a1a; margin: 4px 0; padding: 6px 8px; border-radius: 4px; border-left: 3px solid forestgreen; display: flex; justify-content: space-between; align-items: center; font-size: 0.8em; }
-        
-        select { background: #1a3a1a; border: 1px solid forestgreen; color: forestgreen; padding: 4px; border-radius: 4px; }
-        
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0d2b0d; }
-        ::-webkit-scrollbar-thumb { background: forestgreen; border-radius: 4px; }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="dashboard">
@@ -115,51 +34,77 @@
             <p>Click to Filter | No Query Needed</p>
         </div>
         
-        <!-- Filters Container (populated by filters.js) -->
-        <div id="filtersContainer"></div>
-        
-        <!-- Active Filters Display -->
-        <div class="accordion-section">
-            <div class="accordion-header" data-accordion="active">
-                <span>🔍 ACTIVE FILTERS</span>
-                <span class="arrow">▶</span>
-            </div>
-            <div class="accordion-content" data-content="active">
-                <div class="accordion-content-inner">
-                    <div id="activeFilters" class="active-filter">No active filters (showing all)</div>
-                    <button id="clearAllFilters" style="width:100%; margin-top:8px;">CLEAR ALL FILTERS</button>
-                </div>
+        <!-- FILTER BY SUBURB -->
+        <div class="section">
+            <h3>FILTER BY SUBURB</h3>
+            <div class="filter-buttons" id="suburbFilters">
+                <button class="filter-btn active" data-suburb="all">ALL</button>
+                <button class="filter-btn" data-suburb="CBD">CBD</button>
+                <button class="filter-btn" data-suburb="Sakubva">SAKUBVA</button>
+                <button class="filter-btn" data-suburb="Dangamvura">DANGAMVURA</button>
+                <button class="filter-btn" data-suburb="Chikanga">CHIKANGA</button>
+                <button class="filter-btn" data-suburb="Yeovil">YEOVIL</button>
             </div>
         </div>
         
-        <!-- Map Layers Section -->
-        <div class="accordion-section">
-            <div class="accordion-header" data-accordion="layers">
-                <span>🗺️ MAP LAYERS</span>
-                <span class="arrow">▶</span>
+        <!-- FILTER BY DIAMETER -->
+        <div class="section">
+            <h3>FILTER BY DIAMETER (mm)</h3>
+            <div class="filter-buttons" id="diameterFilters">
+                <button class="filter-btn active" data-diameter="all">ALL</button>
+                <button class="filter-btn" data-diameter="small">&lt; 100 mm</button>
+                <button class="filter-btn" data-diameter="medium">100 - 150 mm</button>
+                <button class="filter-btn" data-diameter="large">&gt; 150 mm</button>
             </div>
-            <div class="accordion-content" data-content="layers">
-                <div class="accordion-content-inner">
-                    <div class="layer-buttons">
-                        <button id="toggleManholesBtn">🕳️ Manholes</button>
-                        <button id="togglePipelinesBtn">📏 Pipelines</button>
-                        <button id="toggleSuburbsBtn">🏘️ Suburbs</button>
-                    </div>
-                    <div class="layer-item">
-                        <span>🗺️ Base Map</span>
-                        <select id="baseMapSelect">
-                            <option value="osm">Street</option>
-                            <option value="satellite">Satellite</option>
-                            <option value="topo">Topographic</option>
-                        </select>
-                    </div>
-                </div>
+        </div>
+        
+        <!-- FILTER BY MATERIAL -->
+        <div class="section">
+            <h3>FILTER BY MATERIAL</h3>
+            <div class="filter-buttons" id="materialFilters">
+                <button class="filter-btn active" data-material="all">ALL</button>
+                <button class="filter-btn" data-material="concrete">CONCRETE</button>
+                <button class="filter-btn" data-material="PVC">PVC</button>
+                <button class="filter-btn" data-material="asbestos">ASBESTOS</button>
+                <button class="filter-btn" data-material="clay">CLAY</button>
+            </div>
+        </div>
+        
+        <!-- FILTER BY RISK STATUS -->
+        <div class="section">
+            <h3>FILTER BY RISK STATUS</h3>
+            <div class="filter-buttons" id="statusFilters">
+                <button class="filter-btn active" data-status="all">ALL</button>
+                <button class="filter-btn" data-status="critical">CRITICAL (High Risk)</button>
+                <button class="filter-btn" data-status="warning">WARNING (Medium Risk)</button>
+                <button class="filter-btn" data-status="good">GOOD (Low Risk)</button>
+            </div>
+        </div>
+        
+        <!-- ACTIVE FILTERS -->
+        <div class="section">
+            <h3>ACTIVE FILTERS</h3>
+            <div id="activeFilters" class="active-filter">No active filters (showing all)</div>
+            <button id="clearAllFilters" style="width:100%; margin-top:10px;">CLEAR ALL</button>
+        </div>
+        
+        <!-- MAP LAYERS (QGIS Style) -->
+        <div class="section">
+            <h3>🗺️ MAP LAYERS</h3>
+            <div id="layer-list" class="layer-list">
+                <!-- Layers will be populated by layermanager.js -->
+                <div class="layer-item">Loading layers...</div>
             </div>
         </div>
     </div>
     
     <!-- MAIN CONTENT: MAP -->
     <div class="main-content">
+        <!-- QGIS-STYLE MENU BAR -->
+        <div id="qgis-menu-bar" class="qgis-menu">
+            <!-- Menu will be populated by layermanager.js -->
+        </div>
+        
         <div class="toolbar">
             <button id="fitBoundsBtn">🎯 FIT ALL</button>
             <button id="heatmapBtn">🔥 SHOW HEATMAP</button>
@@ -222,6 +167,7 @@
 
 <script src="mapview.js"></script>
 <script src="filters.js"></script>
-<script src="script.js"></script>
+<script src="layermanager.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
