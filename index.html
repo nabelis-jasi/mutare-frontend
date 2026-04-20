@@ -2,9 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mutare Sewer Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mutare Sewer Engineering Dashboard</title>
+    <link rel="icon" href="data:,">
+    
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- PapaParse for CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <!-- jsPDF for reports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="dashboard">
@@ -12,7 +27,7 @@
     <div class="left-panel">
         <div id="header-container"></div>
         <div id="filters-container"></div>
-        <div id="layers-container"></div>
+        <div id="layermanager-container"></div>
     </div>
     
     <!-- MAIN CONTENT -->
@@ -24,7 +39,6 @@
     
     <!-- RIGHT PANEL -->
     <div class="right-panel">
-        <div id="tabs-container"></div>
         <div id="statistics-container"></div>
         <div id="hotspots-container"></div>
         <div id="reports-container"></div>
