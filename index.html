@@ -2,172 +2,35 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mutare Sewer Engineering Dashboard</title>
-    <link rel="icon" href="data:,">
-    
-    <!-- Leaflet Core -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- Leaflet Plugins -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.0.1/leaflet-heat.js"></script>
-    
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    
-    <!-- PapaParse for CSV -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    
-    <!-- jsPDF for reports -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
-    
+    <title>Mutare Sewer Dashboard</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
 <div class="dashboard">
     <!-- LEFT PANEL -->
     <div class="left-panel">
-        <div class="panel-header">
-            <h1>🌲 MUTARE SEWER ENGINEER</h1>
-            <p>Click to Filter | No Query Needed</p>
-        </div>
-        
-        <!-- FILTER BY SUBURB -->
-        <div class="section">
-            <h3>FILTER BY SUBURB</h3>
-            <div class="filter-buttons" id="suburbFilters">
-                <button class="filter-btn active" data-suburb="all">ALL</button>
-                <button class="filter-btn" data-suburb="CBD">CBD</button>
-                <button class="filter-btn" data-suburb="Sakubva">SAKUBVA</button>
-                <button class="filter-btn" data-suburb="Dangamvura">DANGAMVURA</button>
-                <button class="filter-btn" data-suburb="Chikanga">CHIKANGA</button>
-                <button class="filter-btn" data-suburb="Yeovil">YEOVIL</button>
-            </div>
-        </div>
-        
-        <!-- FILTER BY DIAMETER -->
-        <div class="section">
-            <h3>FILTER BY DIAMETER (mm)</h3>
-            <div class="filter-buttons" id="diameterFilters">
-                <button class="filter-btn active" data-diameter="all">ALL</button>
-                <button class="filter-btn" data-diameter="small">&lt; 100 mm</button>
-                <button class="filter-btn" data-diameter="medium">100 - 150 mm</button>
-                <button class="filter-btn" data-diameter="large">&gt; 150 mm</button>
-            </div>
-        </div>
-        
-        <!-- FILTER BY MATERIAL -->
-        <div class="section">
-            <h3>FILTER BY MATERIAL</h3>
-            <div class="filter-buttons" id="materialFilters">
-                <button class="filter-btn active" data-material="all">ALL</button>
-                <button class="filter-btn" data-material="concrete">CONCRETE</button>
-                <button class="filter-btn" data-material="PVC">PVC</button>
-                <button class="filter-btn" data-material="asbestos">ASBESTOS</button>
-                <button class="filter-btn" data-material="clay">CLAY</button>
-            </div>
-        </div>
-        
-        <!-- FILTER BY RISK STATUS -->
-        <div class="section">
-            <h3>FILTER BY RISK STATUS</h3>
-            <div class="filter-buttons" id="statusFilters">
-                <button class="filter-btn active" data-status="all">ALL</button>
-                <button class="filter-btn" data-status="critical">CRITICAL (High Risk)</button>
-                <button class="filter-btn" data-status="warning">WARNING (Medium Risk)</button>
-                <button class="filter-btn" data-status="good">GOOD (Low Risk)</button>
-            </div>
-        </div>
-        
-        <!-- ACTIVE FILTERS -->
-        <div class="section">
-            <h3>ACTIVE FILTERS</h3>
-            <div id="activeFilters" class="active-filter">No active filters (showing all)</div>
-            <button id="clearAllFilters" style="width:100%; margin-top:10px;">CLEAR ALL</button>
-        </div>
-        
-        <!-- MAP LAYERS (QGIS Style) -->
-        <div class="section">
-            <h3>🗺️ MAP LAYERS</h3>
-            <div id="layer-list" class="layer-list">
-                <!-- Layers will be populated by layermanager.js -->
-                <div class="layer-item">Loading layers...</div>
-            </div>
-        </div>
+        <div id="header-container"></div>
+        <div id="filters-container"></div>
+        <div id="layers-container"></div>
     </div>
     
-    <!-- MAIN CONTENT: MAP -->
+    <!-- MAIN CONTENT -->
     <div class="main-content">
-        <!-- QGIS-STYLE MENU BAR -->
-        <div id="qgis-menu-bar" class="qgis-menu">
-            <!-- Menu will be populated by layermanager.js -->
-        </div>
-        
-        <div class="toolbar">
-            <button id="fitBoundsBtn">🎯 FIT ALL</button>
-            <button id="heatmapBtn">🔥 SHOW HEATMAP</button>
-            <button id="clearHeatmapBtn">❌ CLEAR HEATMAP</button>
-            <button id="exportGeoJSONBtn">📎 EXPORT GEOJSON</button>
-            <button id="printMapBtn">🖨️ PRINT MAP</button>
-        </div>
-        <div class="map-container">
-            <div id="map"></div>
-        </div>
-        <div class="status-bar">
-            <span id="coordStatus">READY | Map loaded</span>
-        </div>
+        <div id="toolbar-container"></div>
+        <div id="map-container"></div>
+        <div id="status-container"></div>
     </div>
     
-    <!-- RIGHT PANEL: ANALYTICS -->
+    <!-- RIGHT PANEL -->
     <div class="right-panel">
-        <div class="tabs">
-            <div class="tab active" data-tab="stats">📊 STATISTICS</div>
-            <div class="tab" data-tab="hotspots">🔥 HOTSPOTS</div>
-            <div class="tab" data-tab="reports">📄 REPORTS</div>
-        </div>
-        
-        <div id="stats-tab" class="tab-content">
-            <div class="chart-container">
-                <h4>BLOCKAGES BY SUBURB</h4>
-                <canvas id="suburbChart"></canvas>
-            </div>
-            <div class="chart-container">
-                <h4>JOBS BY TYPE</h4>
-                <canvas id="jobsChart"></canvas>
-            </div>
-            <div class="chart-container">
-                <h4>QUICK SUMMARY</h4>
-                <div id="quickSummary">
-                    <div class="stat-row"><span>Total Manholes:</span><span id="totalManholes">0</span></div>
-                    <div class="stat-row"><span>Total Pipelines:</span><span id="totalPipelines">0</span></div>
-                    <div class="stat-row"><span>Critical Assets:</span><span id="criticalAssets">0</span></div>
-                    <div class="stat-row"><span>Total Blockages:</span><span id="totalBlockages">0</span></div>
-                </div>
-            </div>
-        </div>
-        
-        <div id="hotspots-tab" class="tab-content" style="display:none;">
-            <div class="chart-container">
-                <h4>PROBLEM ASSETS (Top 5)</h4>
-                <div id="problemAssetsList"></div>
-            </div>
-        </div>
-        
-        <div id="reports-tab" class="tab-content" style="display:none;">
-            <div class="chart-container">
-                <h4>GENERATE REPORTS</h4>
-                <button id="weeklyReportBtn" style="width:100%; margin-bottom:8px;">📄 WEEKLY PDF REPORT</button>
-                <button id="exportCSVBtn" style="width:100%;">📎 EXPORT DATA AS CSV</button>
-            </div>
-        </div>
+        <div id="tabs-container"></div>
+        <div id="statistics-container"></div>
+        <div id="hotspots-container"></div>
+        <div id="reports-container"></div>
     </div>
 </div>
 
-<script src="mapview.js"></script>
-<script src="filters.js"></script>
-<script src="layermanager.js"></script>
-<script src="app.js"></script>
+<script type="module" src="main.js"></script>
 </body>
 </html>
