@@ -2,66 +2,255 @@
    MUTARE SEWER ENGINEERING DASHBOARD
    FOREST GREEN THEME - COMPLETE STYLESHEET
    ============================================ */
+
 /* ============================================
-   MENU BAR STYLES
+   RESET & BASE STYLES
    ============================================ */
 
-.menu {
-    background: #1a3a1a;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', 'Monaco', 'Consolas', monospace;
+    background: #0a1f0a;
+    color: forestgreen;
+    overflow: hidden;
+}
+
+/* ============================================
+   DASHBOARD LAYOUT
+   ============================================ */
+
+.dashboard {
     display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* ============================================
+   LEFT PANEL
+   ============================================ */
+
+.left-panel {
+    width: 340px;
+    background: #0a1a0a;
+    border-right: 2px solid forestgreen;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Panel Header */
+.panel-header {
+    padding: 20px 15px;
+    background: #0d2b0d;
+    border-bottom: 2px solid forestgreen;
+    text-align: center;
+}
+
+.panel-header h1 {
+    font-size: 1.3em;
+    letter-spacing: 2px;
+    color: #6b8e23;
+}
+
+.panel-header p {
+    font-size: 0.7em;
+    margin-top: 8px;
+    opacity: 0.7;
+}
+
+/* Sections */
+.section {
+    padding: 12px 15px;
+    border-bottom: 1px solid #1a3a1a;
+}
+
+.section h3 {
+    font-size: 0.85em;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid forestgreen;
+    color: #7cb342;
+    letter-spacing: 0.5px;
+}
+
+/* ============================================
+   MAIN CONTENT (MAP AREA) - CRITICAL FIXES
+   ============================================ */
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    position: relative;
+}
+
+/* Toolbar */
+.toolbar {
+    flex-shrink: 0;
+    background: #1e3a1e;
+    padding: 8px 12px;
+    display: flex;
+    gap: 8px;
     flex-wrap: wrap;
-    gap: 2px;
-    padding: 4px;
-    border-radius: 4px;
+    align-items: center;
+    border-bottom: 1px solid forestgreen;
+}
+
+.toolbar button {
+    background: #1a3a1a;
     border: 1px solid forestgreen;
+    color: forestgreen;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75em;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.toolbar button:hover {
+    background: forestgreen;
+    color: #0a1f0a;
+    transform: translateY(-1px);
+}
+
+/* Toolbar Menu Container */
+.toolbar-menu-container {
+    display: inline-block;
+}
+
+/* Map Container - CRITICAL FOR MAP DISPLAY */
+.map-container {
+    flex: 1;
+    position: relative;
+    background: #0a1f0a;
+    min-height: 0;
+}
+
+#map {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    background: #0a1f0a;
+}
+
+/* Status Bar */
+.status-bar {
+    flex-shrink: 0;
+    background: #1a3a1a;
+    padding: 4px 12px;
+    font-size: 0.65em;
+    border-top: 1px solid forestgreen;
+    color: #7cb342;
+}
+
+/* ============================================
+   RIGHT PANEL
+   ============================================ */
+
+.right-panel {
+    width: 380px;
+    background: #0a1a0a;
+    border-left: 2px solid forestgreen;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+/* ============================================
+   MENU DROPDOWN STYLES (Toolbar Menu)
+   ============================================ */
+
+.menu-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.menu-icon-btn {
+    background: #1a3a1a;
+    border: 1px solid forestgreen;
+    color: forestgreen;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75em;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.menu-icon-btn:hover {
+    background: forestgreen;
+    color: #0a1f0a;
+}
+
+.menu-dropdown-content {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #0d2b0d;
+    border: 1px solid forestgreen;
+    border-radius: 6px;
+    min-width: 220px;
+    z-index: 1000;
+    max-height: 500px;
+    overflow-y: auto;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.menu-dropdown-content.show {
+    display: block;
+}
+
+.menu-section {
+    padding: 8px 0;
+    border-bottom: 1px solid #1a3a1a;
+}
+
+.menu-section-title {
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: bold;
+    color: #8fdc00;
+    background: #1a3a1a;
 }
 
 .menu-item {
-    position: relative;
-    padding: 6px 12px;
+    padding: 6px 12px 6px 24px;
     cursor: pointer;
-    font-size: 0.7em;
-    font-weight: bold;
-    color: #7cb342;
-    border-radius: 4px;
+    font-size: 12px;
+    color: #7ab87a;
     transition: all 0.2s;
 }
 
 .menu-item:hover {
     background: #2a4a2a;
-}
-
-.dropdown-menu {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    background: #1a3a1a;
-    border: 1px solid forestgreen;
-    min-width: 160px;
-    z-index: 1000;
-    border-radius: 4px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-}
-
-.menu-item:hover .dropdown-menu {
-    display: block;
-}
-
-.dropdown-item {
-    padding: 6px 12px;
-    cursor: pointer;
-    font-size: 0.7em;
-    color: #7ab87a;
-    transition: all 0.2s;
-}
-
-.dropdown-item:hover {
-    background: #2a4a2a;
     color: #8fdc00;
 }
 
-/* Layer List Styles */
+.menu-divider {
+    height: 1px;
+    background: #1a3a1a;
+    margin: 4px 0;
+}
+
+/* ============================================
+   LAYER MANAGER STYLES
+   ============================================ */
+
 .layer-list {
     max-height: 250px;
     overflow-y: auto;
@@ -116,109 +305,158 @@
 .layer-controls button:hover {
     background: #3a5a3a;
 }
-/* ============================================
-   ADD THESE STYLES TO EXISTING style.css
-   ============================================ */
 
-/* Map Container */
-.map-container {
-    position: relative;
-    flex: 1;
-    background: #0a1f0a;
-}
-
-#map {
-    height: 100%;
+/* Add Layer Button */
+.add-layer-btn {
     width: 100%;
-    background: #0a1f0a;
-}
-
-/* Tile Selector Styles */
-.tile-selector {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 1000;
-}
-
-.tile-selector button {
-    font-family: inherit;
-}
-
-.tile-option {
-    transition: all 0.2s ease;
-}
-
-.tile-option:hover {
-    background: #2a4a2a !important;
-    color: #8fdc00 !important;
-}
-
-/* Custom Marker Popup Styles */
-.custom-marker {
-    background: transparent;
-    border: none;
-}
-
-.leaflet-popup-content-wrapper {
-    background: #1e3a1e;
-    border: 1px solid forestgreen;
-    border-radius: 8px;
-}
-
-.leaflet-popup-tip {
-    background: #1e3a1e;
-    border: 1px solid forestgreen;
-}
-
-/* Status Bar */
-.status-bar {
-    background: #1a3a1a;
-    padding: 4px 12px;
-    font-size: 0.7em;
-    border-top: 1px solid forestgreen;
-    color: #7cb342;
-}
-
-/* Toolbar */
-.toolbar {
-    background: #1e3a1e;
-    padding: 8px 12px;
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    border-bottom: 1px solid forestgreen;
-}
-
-.toolbar button {
+    margin-top: 10px;
+    padding: 8px;
     background: #1a3a1a;
     border: 1px solid forestgreen;
     color: forestgreen;
-    padding: 6px 14px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.75em;
     font-weight: bold;
     transition: all 0.2s;
 }
 
-.toolbar button:hover {
+.add-layer-btn:hover {
     background: forestgreen;
     color: #0a1f0a;
-    transform: translateY(-1px);
 }
 
-/* Right Panel Styles */
-.right-panel {
-    width: 380px;
-    background: #0a1a0a;
-    border-left: 2px solid forestgreen;
+/* ============================================
+   FILTER BUTTONS & ACCORDION
+   ============================================ */
+
+.filter-buttons {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.filter-btn {
+    background: #1a3a1a;
+    border: 1px solid forestgreen;
+    color: forestgreen;
+    padding: 5px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.7em;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.filter-btn:hover {
+    background: #2a4a2a;
+    transform: scale(1.02);
+}
+
+.filter-btn.active {
+    background: forestgreen;
+    color: #0a1f0a;
+    border-color: #0a1f0a;
+}
+
+/* Active Filters Display */
+.active-filter {
+    background: #1a3a1a;
+    padding: 10px;
+    border-radius: 6px;
+    margin-top: 5px;
+    font-size: 0.7em;
+    text-align: center;
+    border: 1px dashed #2a4a2a;
+}
+
+/* Accordion Styles */
+.accordion-filters {
+    margin-bottom: 5px;
+}
+
+.accordion-section {
+    border-bottom: 1px solid #1a3a1a;
+}
+
+.accordion-header {
+    padding: 12px 15px;
+    cursor: pointer;
+    background: #0d2b0d;
+    font-weight: bold;
+    font-size: 0.85em;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #7cb342;
+}
+
+.accordion-header:hover {
+    background: #1a3a1a;
+}
+
+.accordion-header .arrow {
+    font-size: 0.8em;
+    transition: transform 0.2s;
+}
+
+.accordion-header.active .arrow {
+    transform: rotate(90deg);
+}
+
+.accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+    background: #0a1a0a;
+}
+
+.accordion-content.active {
+    max-height: 350px;
     overflow-y: auto;
 }
 
-/* Tabs */
+.accordion-content-inner {
+    padding: 12px 15px;
+}
+
+/* Filter Groups inside Accordion */
+.filter-group {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed #1a3a1a;
+}
+
+.filter-label {
+    font-size: 0.7em;
+    color: #7cb342;
+    margin-bottom: 6px;
+    font-weight: bold;
+}
+
+.filter-controls {
+    width: 100%;
+}
+
+.filter-input {
+    width: 100%;
+    padding: 6px 10px;
+    background: #1a3a1a;
+    border: 1px solid forestgreen;
+    color: forestgreen;
+    border-radius: 4px;
+    font-size: 0.7em;
+}
+
+.filter-input:focus {
+    outline: none;
+    border-color: #7cb342;
+}
+
+/* ============================================
+   TABS & STATISTICS
+   ============================================ */
+
 .tabs {
     display: flex;
     border-bottom: 1px solid forestgreen;
@@ -309,507 +547,7 @@ canvas {
     font-size: 0.75em;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-
-::-webkit-scrollbar-track {
-    background: #0a1a0a;
-    border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: forestgreen;
-    border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #7cb342;
-}
-
-/* Leaflet Override for Forest Green Theme */
-.leaflet-control-attribution {
-    background: rgba(10, 26, 10, 0.8) !important;
-    color: #7cb342 !important;
-    font-size: 9px !important;
-}
-
-.leaflet-control-attribution a {
-    color: #8fdc00 !important;
-}
-
-.leaflet-control-zoom a {
-    background-color: #1a3a1a !important;
-    color: forestgreen !important;
-    border: 1px solid forestgreen !important;
-}
-
-.leaflet-control-zoom a:hover {
-    background-color: forestgreen !important;
-    color: #0a1f0a !important;
-}
-
-/* ============================================
-   RESET & BASE STYLES
-   ============================================ */
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: 'Segoe UI', 'Monaco', 'Consolas', monospace;
-    background: #0a1f0a;
-    color: forestgreen;
-    overflow: hidden;
-}
-
-/* ============================================
-   DASHBOARD LAYOUT
-   ============================================ */
-
-.dashboard {
-    display: flex;
-    height: 100vh;
-    width: 100vw;
-}
-
-/* ============================================
-   LEFT PANEL
-   ============================================ */
-
-.left-panel {
-    width: 340px;
-    background: #0a1a0a;
-    border-right: 2px solid forestgreen;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
-}
-
-/* Panel Header */
-.panel-header {
-    padding: 20px 15px;
-    background: #0d2b0d;
-    border-bottom: 2px solid forestgreen;
-    text-align: center;
-}
-
-.panel-header h1 {
-    font-size: 1.3em;
-    letter-spacing: 2px;
-    color: #6b8e23;
-}
-
-.panel-header p {
-    font-size: 0.7em;
-    margin-top: 8px;
-    opacity: 0.7;
-}
-
-/* Sections */
-.section {
-    padding: 12px 15px;
-    border-bottom: 1px solid #1a3a1a;
-}
-
-.section h3 {
-    font-size: 0.85em;
-    margin-bottom: 12px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid forestgreen;
-    color: #7cb342;
-    letter-spacing: 0.5px;
-}
-
-/* ============================================
-   FILTER BUTTONS
-   ============================================ */
-
-.filter-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.filter-btn {
-    background: #1a3a1a;
-    border: 1px solid forestgreen;
-    color: forestgreen;
-    padding: 5px 12px;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 0.7em;
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
-
-.filter-btn:hover {
-    background: #2a4a2a;
-    transform: scale(1.02);
-}
-
-.filter-btn.active {
-    background: forestgreen;
-    color: #0a1f0a;
-    border-color: #0a1f0a;
-}
-
-/* Active Filters Display */
-.active-filter {
-    background: #1a3a1a;
-    padding: 10px;
-    border-radius: 6px;
-    margin-top: 5px;
-    font-size: 0.7em;
-    text-align: center;
-    border: 1px dashed #2a4a2a;
-}
-
-/* ============================================
-   ACCORDION STYLES (For Filters)
-   ============================================ */
-
-.accordion-filters {
-    margin-bottom: 5px;
-}
-
-.accordion-section {
-    border-bottom: 1px solid #1a3a1a;
-}
-
-.accordion-header {
-    padding: 12px 15px;
-    cursor: pointer;
-    background: #0d2b0d;
-    font-weight: bold;
-    font-size: 0.85em;
-    transition: all 0.2s;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: #7cb342;
-}
-
-.accordion-header:hover {
-    background: #1a3a1a;
-}
-
-.accordion-header .arrow {
-    font-size: 0.8em;
-    transition: transform 0.2s;
-}
-
-.accordion-header.active .arrow {
-    transform: rotate(90deg);
-}
-
-.accordion-content {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease-out;
-    background: #0a1a0a;
-}
-
-.accordion-content.active {
-    max-height: 350px;
-    overflow-y: auto;
-}
-
-.accordion-content-inner {
-    padding: 12px 15px;
-}
-
-/* Filter Groups inside Accordion */
-.filter-group {
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px dashed #1a3a1a;
-}
-
-.filter-label {
-    font-size: 0.7em;
-    color: #7cb342;
-    margin-bottom: 6px;
-    font-weight: bold;
-}
-
-.filter-controls {
-    width: 100%;
-}
-
-.filter-input {
-    width: 100%;
-    padding: 6px 10px;
-    background: #1a3a1a;
-    border: 1px solid forestgreen;
-    color: forestgreen;
-    border-radius: 4px;
-    font-size: 0.7em;
-}
-
-.filter-input:focus {
-    outline: none;
-    border-color: #7cb342;
-}
-
-/* ============================================
-   LAYER MANAGER (QGIS Style)
-   ============================================ */
-
-.layer-list {
-    max-height: 250px;
-    overflow-y: auto;
-}
-
-.layer-item {
-    background: #1a3a1a;
-    margin: 5px 0;
-    padding: 8px 10px;
-    border-radius: 6px;
-    border-left: 3px solid forestgreen;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.8em;
-    transition: all 0.2s;
-}
-
-.layer-item:hover {
-    background: #2a4a2a;
-}
-
-.layer-checkbox {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-    accent-color: forestgreen;
-}
-
-.layer-name {
-    flex: 1;
-    cursor: pointer;
-}
-
-.layer-controls {
-    display: flex;
-    gap: 8px;
-}
-
-.layer-controls button {
-    background: none;
-    border: none;
-    color: forestgreen;
-    cursor: pointer;
-    font-size: 0.8em;
-    padding: 2px 5px;
-    border-radius: 3px;
-    transition: all 0.2s;
-}
-
-.layer-controls button:hover {
-    background: #3a5a3a;
-}
-
-/* ============================================
-   MAIN CONTENT (MAP AREA)
-   ============================================ */
-
-.main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-}
-
-/* Toolbar */
-.toolbar {
-    background: #1e3a1e;
-    padding: 8px 12px;
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    border-bottom: 1px solid forestgreen;
-}
-
-.toolbar button {
-    background: #1a3a1a;
-    border: 1px solid forestgreen;
-    color: forestgreen;
-    padding: 6px 14px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.75em;
-    font-weight: bold;
-    transition: all 0.2s;
-}
-
-.toolbar button:hover {
-    background: forestgreen;
-    color: #0a1f0a;
-    transform: translateY(-1px);
-}
-
-/* Map Container */
-.map-container {
-    flex: 1;
-    background: #0a1f0a;
-    position: relative;
-}
-
-#map {
-    height: 100%;
-    width: 100%;
-    background: #0a1f0a;
-}
-
-/* Status Bar */
-.status-bar {
-    background: #1a3a1a;
-    padding: 4px 12px;
-    font-size: 0.65em;
-    border-top: 1px solid forestgreen;
-    color: #7cb342;
-}
-
-/* ============================================
-   RIGHT PANEL (STATISTICS, HOTSPOTS, REPORTS)
-   ============================================ */
-
-.right-panel {
-    width: 380px;
-    background: #0a1a0a;
-    border-left: 2px solid forestgreen;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-}
-
-/* Tabs */
-.tabs {
-    display: flex;
-    border-bottom: 1px solid forestgreen;
-    background: #0d2b0d;
-}
-
-.tab {
-    flex: 1;
-    padding: 10px;
-    text-align: center;
-    cursor: pointer;
-    background: #1a3a1a;
-    font-weight: bold;
-    font-size: 0.8em;
-    transition: all 0.2s;
-    border: none;
-}
-
-.tab:hover {
-    background: #2a4a2a;
-}
-
-.tab.active {
-    background: forestgreen;
-    color: #0a1f0a;
-}
-
-.tab-content {
-    padding: 15px;
-    flex: 1;
-    overflow-y: auto;
-}
-
-/* ============================================
-   STATISTICS COMPONENT
-   ============================================ */
-
-.statistics-container {
-    padding: 5px;
-}
-
-/* Chart Containers */
-.chart-container {
-    margin-bottom: 20px;
-    background: #0d2b0d;
-    border-radius: 8px;
-    padding: 12px;
-    border: 1px solid #2a4a2a;
-}
-
-.chart-container h4 {
-    margin-bottom: 12px;
-    text-align: center;
-    font-size: 0.8em;
-    color: #7cb342;
-    letter-spacing: 0.5px;
-}
-
-canvas {
-    max-height: 180px;
-    width: 100%;
-}
-
-/* Summary Grid Cards */
-.summary-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin-bottom: 15px;
-}
-
-.summary-card {
-    background: #1a3a1a;
-    border-radius: 8px;
-    padding: 10px;
-    text-align: center;
-    border: 1px solid #2a4a2a;
-    transition: all 0.2s;
-}
-
-.summary-card:hover {
-    border-color: forestgreen;
-    transform: translateY(-2px);
-}
-
-.summary-value {
-    font-size: 1.5em;
-    font-weight: bold;
-    color: #7cb342;
-}
-
-.summary-label {
-    font-size: 0.65em;
-    margin-top: 5px;
-    opacity: 0.8;
-}
-
-/* Stat Rows (for hotspots & lists) */
-.stat-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px solid #2a4a2a;
-    font-size: 0.75em;
-}
-
-.stat-row:last-child {
-    border-bottom: none;
-}
-
-/* Risk Distribution Bar */
-#riskDistributionBar {
-    transition: all 0.3s ease;
-}
-
-/* ============================================
-   HOTSPOTS COMPONENT
-   ============================================ */
-
+/* Hotspot Items */
 .hotspot-item {
     background: #1a3a1a;
     padding: 10px;
@@ -825,20 +563,7 @@ canvas {
     transform: translateX(3px);
 }
 
-.hotspot-name {
-    font-weight: bold;
-    color: #7cb342;
-}
-
-.hotspot-value {
-    color: #dc3545;
-    font-weight: bold;
-}
-
-/* ============================================
-   REPORTS COMPONENT
-   ============================================ */
-
+/* Report Buttons */
 .report-buttons {
     display: flex;
     flex-direction: column;
@@ -864,59 +589,88 @@ canvas {
 }
 
 /* ============================================
-   QGIS MENU BAR
+   TILE SELECTOR STYLES
    ============================================ */
 
-.qgis-menu {
-    background: #1a3a1a;
-    display: flex;
-    gap: 2px;
-    padding: 4px 8px;
-    border-bottom: 1px solid forestgreen;
-    flex-wrap: wrap;
-}
-
-.menu-item {
-    position: relative;
-    padding: 6px 14px;
-    cursor: pointer;
-    font-size: 0.75em;
-    font-weight: bold;
-    color: #7cb342;
-    transition: all 0.2s;
-}
-
-.menu-item:hover {
-    background: #2a4a2a;
-}
-
-.dropdown-menu {
-    display: none;
+.tile-selector {
     position: absolute;
-    top: 100%;
-    left: 0;
-    background: #1a3a1a;
-    border: 1px solid forestgreen;
-    min-width: 180px;
+    top: 12px;
+    right: 12px;
     z-index: 1000;
-    border-radius: 4px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
-.menu-item:hover .dropdown-menu {
-    display: block;
+.tile-option {
+    transition: all 0.2s ease;
 }
 
-.dropdown-item {
-    padding: 8px 14px;
-    cursor: pointer;
-    font-size: 0.7em;
-    transition: all 0.2s;
+.tile-option:hover {
+    background: #2a4a2a !important;
+    color: #8fdc00 !important;
 }
 
-.dropdown-item:hover {
-    background: #2a4a2a;
-    color: #7cb342;
+/* ============================================
+   CUSTOM MARKER & POPUP STYLES
+   ============================================ */
+
+.custom-marker {
+    background: transparent;
+    border: none;
+}
+
+.leaflet-popup-content-wrapper {
+    background: #1e3a1e;
+    border: 1px solid forestgreen;
+    border-radius: 8px;
+}
+
+.leaflet-popup-tip {
+    background: #1e3a1e;
+    border: 1px solid forestgreen;
+}
+
+/* Leaflet Overrides */
+.leaflet-control-attribution {
+    background: rgba(10, 26, 10, 0.8) !important;
+    color: #7cb342 !important;
+    font-size: 9px !important;
+}
+
+.leaflet-control-attribution a {
+    color: #8fdc00 !important;
+}
+
+.leaflet-control-zoom a {
+    background-color: #1a3a1a !important;
+    color: forestgreen !important;
+    border: 1px solid forestgreen !important;
+}
+
+.leaflet-control-zoom a:hover {
+    background-color: forestgreen !important;
+    color: #0a1f0a !important;
+}
+
+/* ============================================
+   SCROLLBAR STYLES
+   ============================================ */
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0a1a0a;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: forestgreen;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #7cb342;
 }
 
 /* ============================================
@@ -943,7 +697,6 @@ canvas {
     padding: 25px;
     min-width: 350px;
     max-width: 500px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
 }
 
 .modal-content h3 {
@@ -971,108 +724,7 @@ canvas {
 
 .modal-buttons button {
     flex: 1;
-    padding: 8px;
 }
-
-/* ============================================
-   BUTTONS & CONTROLS
-   ============================================ */
-
-button {
-    background: #1a3a1a;
-    border: 1px solid forestgreen;
-    color: forestgreen;
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.75em;
-    font-weight: bold;
-    transition: all 0.2s ease;
-}
-
-button:hover {
-    background: forestgreen;
-    color: #0a1f0a;
-    transform: translateY(-1px);
-}
-
-select {
-    background: #1a3a1a;
-    border: 1px solid forestgreen;
-    color: forestgreen;
-    padding: 6px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.75em;
-}
-
-select:hover {
-    background: #2a4a2a;
-}
-
-input, textarea {
-    background: #1a3a1a;
-    border: 1px solid forestgreen;
-    color: forestgreen;
-    padding: 6px 10px;
-    border-radius: 4px;
-    font-size: 0.75em;
-}
-
-input:focus, textarea:focus {
-    outline: none;
-    border-color: #7cb342;
-}
-
-/* ============================================
-   SCROLLBAR STYLES
-   ============================================ */
-
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-
-::-webkit-scrollbar-track {
-    background: #0a1a0a;
-    border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: forestgreen;
-    border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #7cb342;
-}
-
-/* ============================================
-   UTILITY CLASSES
-   ============================================ */
-
-.text-center {
-    text-align: center;
-}
-
-.text-success {
-    color: #28a745;
-}
-
-.text-warning {
-    color: #ffc107;
-}
-
-.text-danger {
-    color: #dc3545;
-}
-
-.mt-1 { margin-top: 5px; }
-.mt-2 { margin-top: 10px; }
-.mt-3 { margin-top: 15px; }
-.mb-1 { margin-bottom: 5px; }
-.mb-2 { margin-bottom: 10px; }
-.mb-3 { margin-bottom: 15px; }
 
 /* ============================================
    RESPONSIVE DESIGN
@@ -1082,7 +734,6 @@ input:focus, textarea:focus {
     .left-panel {
         width: 300px;
     }
-    
     .right-panel {
         width: 340px;
     }
@@ -1092,14 +743,12 @@ input:focus, textarea:focus {
     .dashboard {
         flex-direction: column;
     }
-    
     .left-panel, .right-panel {
         width: 100%;
         max-height: 30vh;
         border: none;
         border-bottom: 1px solid forestgreen;
     }
-    
     .main-content {
         min-height: 40vh;
     }
@@ -1109,20 +758,33 @@ input:focus, textarea:focus {
     .toolbar {
         gap: 5px;
     }
-    
     .toolbar button {
         padding: 4px 8px;
         font-size: 0.65em;
     }
-    
     .summary-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 8px;
     }
-    
     .filter-btn {
         padding: 3px 8px;
         font-size: 0.65em;
+    }
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+
+@media print {
+    .left-panel, .right-panel, .toolbar, .status-bar {
+        display: none;
+    }
+    .main-content {
+        width: 100%;
+    }
+    #map {
+        height: 100vh;
     }
 }
 
@@ -1141,40 +803,6 @@ input:focus, textarea:focus {
     }
 }
 
-@keyframes pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(34, 139, 34, 0.4);
-    }
-    70% {
-        box-shadow: 0 0 0 10px rgba(34, 139, 34, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(34, 139, 34, 0);
-    }
-}
-
 .fade-in {
     animation: fadeIn 0.3s ease;
-}
-
-.pulse {
-    animation: pulse 1.5s infinite;
-}
-
-/* ============================================
-   PRINT STYLES
-   ============================================ */
-
-@media print {
-    .left-panel, .right-panel, .toolbar, .status-bar {
-        display: none;
-    }
-    
-    .main-content {
-        width: 100%;
-    }
-    
-    #map {
-        height: 100vh;
-    }
 }
