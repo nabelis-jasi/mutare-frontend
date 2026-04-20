@@ -1,68 +1,205 @@
-/* Filter Group Styles */
-.filter-group {
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px dashed #1a3a1a;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    color: forestgreen;
 }
 
-.filter-label {
-    font-size: 0.7em;
-    color: #7cb342;
-    margin-bottom: 6px;
-    font-weight: bold;
+body {
+    font-family: 'Segoe UI', 'Monaco', monospace;
+    background: #0a1f0a;
+    overflow: hidden;
 }
 
-.filter-controls {
-    width: 100%;
-}
-
-.filter-buttons {
+.dashboard {
     display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
+    height: 100vh;
+    width: 100vw;
 }
 
-.filter-btn {
+/* LEFT PANEL */
+.left-panel {
+    width: 340px;
+    background: #0d2b0d;
+    border-right: 2px solid forestgreen;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+/* MAIN CONTENT */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* RIGHT PANEL */
+.right-panel {
+    width: 360px;
+    background: #0d2b0d;
+    border-left: 2px solid forestgreen;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+/* Toolbar */
+.toolbar {
+    background: #1e3a1e;
+    padding: 8px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid forestgreen;
+}
+
+.toolbar button {
     background: #1a3a1a;
     border: 1px solid forestgreen;
     color: forestgreen;
-    padding: 4px 8px;
-    border-radius: 15px;
+    padding: 6px 12px;
+    border-radius: 4px;
     cursor: pointer;
-    font-size: 0.65em;
-    transition: all 0.2s;
+    font-size: 0.75em;
+    font-weight: bold;
 }
 
-.filter-btn:hover {
-    background: #2a4a2a;
-}
-
-.filter-btn.active {
+.toolbar button:hover {
     background: forestgreen;
     color: #0a1f0a;
 }
 
-.filter-input {
+/* Map Container */
+.map-container {
+    flex: 1;
+    background: #0a1f0a;
+}
+
+#map {
+    height: 100%;
     width: 100%;
-    padding: 6px 8px;
+    background: #0a1f0a;
+}
+
+/* Status Bar */
+.status-bar {
     background: #1a3a1a;
-    border: 1px solid forestgreen;
-    color: forestgreen;
-    border-radius: 4px;
-    font-size: 0.7em;
+    padding: 4px 8px;
+    font-size: 0.65em;
+    border-top: 1px solid forestgreen;
 }
 
-.filter-input:focus {
-    outline: none;
-    border-color: #7cb342;
+/* Tabs */
+.tabs {
+    display: flex;
+    border-bottom: 1px solid forestgreen;
 }
 
-/* Accordion adjustments */
-.accordion-content.active {
-    max-height: 400px;
+.tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    background: #1a3a1a;
+    font-weight: bold;
+    font-size: 0.8em;
+}
+
+.tab.active {
+    background: forestgreen;
+    color: #0a1f0a;
+}
+
+.tab-content {
+    padding: 12px;
+    flex: 1;
     overflow-y: auto;
 }
 
-.accordion-content-inner {
-    padding: 10px 12px;
+/* Chart Containers */
+.chart-container {
+    margin-bottom: 15px;
+    background: #1a3a1a;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.chart-container h4 {
+    margin-bottom: 8px;
+    text-align: center;
+    font-size: 0.8em;
+}
+
+canvas {
+    max-height: 160px;
+    width: 100%;
+}
+
+/* Stat Rows */
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid #2a4a2a;
+    font-size: 0.75em;
+}
+
+/* Layer List */
+.layer-list {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.layer-item {
+    background: #1a3a1a;
+    margin: 4px 0;
+    padding: 8px;
+    border-radius: 4px;
+    border-left: 3px solid forestgreen;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8em;
+}
+
+.layer-item:hover {
+    background: #2a4a2a;
+}
+
+.layer-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.layer-name {
+    flex: 1;
+    cursor: pointer;
+}
+
+.layer-controls {
+    display: flex;
+    gap: 6px;
+}
+
+.layer-controls button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.8em;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0d2b0d;
+}
+
+::-webkit-scrollbar-thumb {
+    background: forestgreen;
+    border-radius: 4px;
 }
