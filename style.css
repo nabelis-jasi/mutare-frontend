@@ -3,6 +3,120 @@
    FOREST GREEN THEME - COMPLETE STYLESHEET
    ============================================ */
 /* ============================================
+   MENU BAR STYLES
+   ============================================ */
+
+.menu {
+    background: #1a3a1a;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 4px;
+    border: 1px solid forestgreen;
+}
+
+.menu-item {
+    position: relative;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 0.7em;
+    font-weight: bold;
+    color: #7cb342;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.menu-item:hover {
+    background: #2a4a2a;
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #1a3a1a;
+    border: 1px solid forestgreen;
+    min-width: 160px;
+    z-index: 1000;
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.menu-item:hover .dropdown-menu {
+    display: block;
+}
+
+.dropdown-item {
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 0.7em;
+    color: #7ab87a;
+    transition: all 0.2s;
+}
+
+.dropdown-item:hover {
+    background: #2a4a2a;
+    color: #8fdc00;
+}
+
+/* Layer List Styles */
+.layer-list {
+    max-height: 250px;
+    overflow-y: auto;
+    margin-top: 8px;
+}
+
+.layer-item {
+    background: #1a3a1a;
+    margin: 5px 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border-left: 3px solid forestgreen;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8em;
+    transition: all 0.2s;
+}
+
+.layer-item:hover {
+    background: #2a4a2a;
+}
+
+.layer-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: forestgreen;
+}
+
+.layer-name {
+    flex: 1;
+    cursor: pointer;
+}
+
+.layer-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.layer-controls button {
+    background: none;
+    border: none;
+    color: forestgreen;
+    cursor: pointer;
+    font-size: 0.8em;
+    padding: 2px 5px;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+
+.layer-controls button:hover {
+    background: #3a5a3a;
+}
+/* ============================================
    ADD THESE STYLES TO EXISTING style.css
    ============================================ */
 
