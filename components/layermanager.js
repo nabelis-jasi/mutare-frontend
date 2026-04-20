@@ -22,7 +22,7 @@ let layerVisibility = {
 function render() {
     return `
         <div class="section">
-            <h3>🗺️ QGIS MENU</h3>
+            <h3>🗺️ MENU</h3>
             <div id="qgis-menu-bar" class="qgis-menu"></div>
         </div>
         <div class="section">
