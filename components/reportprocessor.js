@@ -1,5 +1,5 @@
 // components/reportprocessor.js - Daily Report Processor Component
-// This component goes in the LEFT PANEL below filters
+// This component goes in the LEFT PANEL below the FILTER button
 
 export default {
     render() {
@@ -12,7 +12,13 @@ export default {
                     </p>
                     
                     <textarea id="reportTextInput" class="report-textarea" 
-                        placeholder="Paste your daily report here...&#10;&#10;Example:&#10;SEWER SECTION DAILY REPORT ON 19/11/2025.&#10;Complaints received=33.&#10;Complaints attended to 24 current + 4 from the previous days.&#10;-Sakubva Beithall Gym.&#10;-5689 Bernwin.&#10;-Opp T 430.&#10;-10034 Reminder of Devonshire."></textarea>
+                        placeholder="SEWER SECTION DAILY REPORT ON 19/11/2025.
+Complaints received=33.
+Complaints attended to 24 current + 4 from the previous days.
+-Sakubva Beithall Gym.
+-5689 Bernwin.
+-Opp T 430.
+-10034 Reminder of Devonshire."></textarea>
                     
                     <button id="processReportBtn" class="process-report-btn">
                         🔍 PROCESS REPORT
@@ -55,7 +61,7 @@ export default {
         
         try {
             // Call the Python backend API
-            const response = await fetch('http://localhost:5001/api/process-report', {
+            const response = await fetch('http://localhost:5001/api/reports/process', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ report_text: reportText })
@@ -66,6 +72,7 @@ export default {
             if (data.success) {
                 statsDiv.innerHTML = `
                     <div class="stat-row success"><span>✅ Status:</span><span>Success</span></div>
+                    <div class="stat-row"><span>📅 Report Date:</span><span>${data.report_date || 'Today'}</span></div>
                     <div class="stat-row"><span>📊 Total Complaints:</span><span>${data.stats?.total_complaints || 0}</span></div>
                     <div class="stat-row"><span>✅ Attended To:</span><span>${data.stats?.complaints_attended || 0}</span></div>
                     <div class="stat-row"><span>⏳ Outstanding Jobs:</span><span>${data.stats?.outstanding_jobs || 0}</span></div>
@@ -77,7 +84,7 @@ export default {
                 // Trigger map update to show new complaint locations
                 if (data.complaints_count > 0) {
                     const event = new CustomEvent('reportProcessed', {
-                        detail: { reportDate: new Date().toISOString().split('T')[0] }
+                        detail: { reportDate: data.report_date || new Date().toISOString().split('T')[0] }
                     });
                     document.dispatchEvent(event);
                 }
