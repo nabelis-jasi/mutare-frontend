@@ -4,7 +4,7 @@
    ============================================ */
 /* Report Processor Styles - Below Filter Button */
 .report-processor-section {
-    margin-top: 5px;
+    margin-top: 0;
 }
 
 .report-processor-section .section {
@@ -70,26 +70,6 @@
 .report-result .stat-row.error {
     color: #dc3545;
 }
-
-.report-preview-item {
-    padding: 5px;
-    border-bottom: 1px dashed #2a4a2a;
-    font-size: 0.7em;
-}
-
-.zone-badge {
-    display: inline-block;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.65em;
-    margin-right: 8px;
-}
-
-.zone-CBD { background: #28a745; color: #0a1f0a; }
-.zone-SAKUBVA { background: #ffc107; color: #0a1f0a; }
-.zone-CHIKANGA { background: #17a2b8; color: white; }
-.zone-DANGAMVURA { background: #6f42c1; color: white; }
-.zone-TOWN { background: #fd7e14; color: white; }
 /* ============================================
    ENHANCED FILTER MODAL STYLES - FIXED
    ============================================ */
