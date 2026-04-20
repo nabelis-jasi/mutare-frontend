@@ -5,7 +5,7 @@ export default {
         return `
             <div class="panel-header">
                 <div class="logo-container">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/a/a0/Mutare_City_logo_2023.png" 
+                    <img src="https://tenders.vacancymail.co.zw/competitive-bidding-city-of-mutare/" 
                          alt="City of Mutare Logo" 
                          class="city-logo"
                          onerror="this.onerror=null; this.src='https://placehold.co/60x60/228B22/white?text=MUTARE'">
