@@ -54,7 +54,10 @@ function switchBaseMap(tileType) {
 
 // Load manholes (point layer)
 function loadManholes(manholes) {
-    currentMarkers.forEach(m => map.removeLayer(m));
+    // Clear existing markers
+    for (let i = 0; i < currentMarkers.length; i++) {
+        map.removeLayer(currentMarkers[i]);
+    }
     currentMarkers = [];
     
     if (!manholes || manholes.length === 0) return;
@@ -78,7 +81,6 @@ function loadManholes(manholes) {
                 <b>🕳️ ${m.name}</b><br>
                 Suburb: ${m.suburb}<br>
                 Diameter: ${m.diameter}mm<br>
-                Material: ${m.material}<br>
                 Status: <span style="color:${color}">${m.status.toUpperCase()}</span><br>
                 Blockages: ${m.blockages}
             </div>
@@ -91,7 +93,10 @@ function loadManholes(manholes) {
 
 // Load pipelines (line layer)
 function loadPipelines(pipelines) {
-    currentLines.forEach(l => map.removeLayer(l));
+    // Clear existing lines
+    for (let i = 0; i < currentLines.length; i++) {
+        map.removeLayer(currentLines[i]);
+    }
     currentLines = [];
     
     if (!pipelines || pipelines.length === 0) return;
@@ -111,8 +116,6 @@ function loadPipelines(pipelines) {
         line.bindPopup(`
             <div>
                 <b>📏 ${p.name}</b><br>
-                Diameter: ${p.diameter}mm<br>
-                Material: ${p.material}<br>
                 Status: ${p.status.toUpperCase()}
             </div>
         `);
@@ -124,7 +127,10 @@ function loadPipelines(pipelines) {
 
 // Load suburbs (polygon layer)
 function loadSuburbs(suburbs) {
-    currentPolygons.forEach(p => map.removeLayer(p));
+    // Clear existing polygons
+    for (let i = 0; i < currentPolygons.length; i++) {
+        map.removeLayer(currentPolygons[i]);
+    }
     currentPolygons = [];
     
     if (!suburbs || suburbs.length === 0) return;
@@ -151,9 +157,17 @@ function loadSuburbs(suburbs) {
     }
 }
 
+// Update all layers at once (used when filters change)
+function updateLayers(manholes, pipelines) {
+    loadManholes(manholes);
+    loadPipelines(pipelines);
+}
+
 // Add heatmap
 function addHeatmap(heatPoints) {
-    if (heatLayer) map.removeLayer(heatLayer);
+    if (heatLayer) {
+        map.removeLayer(heatLayer);
+    }
     heatLayer = L.heatLayer(heatPoints, {
         radius: 25,
         blur: 15,
@@ -161,6 +175,14 @@ function addHeatmap(heatPoints) {
         minOpacity: 0.3
     });
     heatLayer.addTo(map);
+}
+
+// Show heatmap from current manholes
+function showHeatmapFromManholes(manholes) {
+    if (!manholes || manholes.length === 0) return;
+    
+    const heatPoints = manholes.map(m => [m.lat, m.lng, m.blockages || 1]);
+    addHeatmap(heatPoints);
 }
 
 // Clear heatmap
@@ -174,10 +196,10 @@ function clearHeatmap() {
 // Fit map to show all assets
 function fitToBounds() {
     const allPoints = [];
-    currentMarkers.forEach(m => {
-        const latlng = m.getLatLng();
+    for (let i = 0; i < currentMarkers.length; i++) {
+        const latlng = currentMarkers[i].getLatLng();
         allPoints.push([latlng.lat, latlng.lng]);
-    });
+    }
     
     if (allPoints.length > 0) {
         const bounds = L.latLngBounds(allPoints);
@@ -190,14 +212,19 @@ function getMap() {
     return map;
 }
 
-// Export functions
-window.MapView = {
+// ============================================
+// EXPORTS (ES6 MODULE)
+// ============================================
+
+export default {
     init: initMap,
     switchBaseMap: switchBaseMap,
     loadManholes: loadManholes,
     loadPipelines: loadPipelines,
     loadSuburbs: loadSuburbs,
+    updateLayers: updateLayers,
     addHeatmap: addHeatmap,
+    showHeatmapFromManholes: showHeatmapFromManholes,
     clearHeatmap: clearHeatmap,
     fitToBounds: fitToBounds,
     getMap: getMap
