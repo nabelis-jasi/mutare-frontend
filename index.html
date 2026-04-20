@@ -29,26 +29,33 @@
 </head>
 <body>
 <div class="dashboard">
-    <!-- LEFT PANEL -->
+    <!-- LEFT PANEL - Layer List and Filters -->
     <div class="left-panel">
         <div id="header-container"></div>
+        <!-- Layer List (checkboxes for manholes, pipelines, etc.) -->
+        <div id="layermanager-container"></div>
+        <!-- Filters (accordion style) -->
         <div id="filters-container"></div>
-       
     </div>
     
     <!-- MAIN CONTENT -->
     <div class="main-content">
-        <!-- LAYER MANAGER AT THE TOP -->
-        <div id="layermanager-container" class="layermanager-top"></div>
+        <!-- Menu Icon at TOP (dropdown for QGIS menus) -->
+        <div id="menu-container" class="menu-top-bar"></div>
         
+        <!-- Toolbar -->
         <div id="toolbar-container"></div>
+        
+        <!-- Map Container -->
         <div id="map-container" class="map-container" style="flex: 1; position: relative; background: #0a1f0a;">
             <div id="map" style="height: 100%; width: 100%;"></div>
         </div>
+        
+        <!-- Status Bar -->
         <div id="status-container"></div>
     </div>
     
-    <!-- RIGHT PANEL -->
+    <!-- RIGHT PANEL - Statistics, Hotspots, Reports -->
     <div class="right-panel">
         <div id="statistics-container"></div>
         <div id="hotspots-container"></div>
