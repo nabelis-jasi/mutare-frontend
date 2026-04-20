@@ -4,7 +4,7 @@
    ============================================ */
 
 /* ============================================
-   ENHANCED FILTER MODAL STYLES
+   ENHANCED FILTER MODAL STYLES - FIXED
    ============================================ */
 
 /* Filter Main Button */
@@ -42,18 +42,18 @@
     box-shadow: 0 0 10px rgba(34, 139, 34, 0.5);
 }
 
-/* Filter Modal Overlay */
+/* Filter Modal Overlay - Make sure it's visible when active */
 .filter-modal {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(0, 0, 0, 0.95);
     display: none;
     justify-content: center;
     align-items: center;
-    z-index: 2000;
+    z-index: 10000;
     backdrop-filter: blur(5px);
 }
 
@@ -63,7 +63,7 @@
     border: 2px solid forestgreen;
     border-radius: 16px;
     width: 90%;
-    max-width: 700px;
+    max-width: 750px;
     max-height: 85vh;
     overflow: hidden;
     display: flex;
@@ -120,6 +120,7 @@
     padding: 20px;
     overflow-y: auto;
     flex: 1;
+    max-height: 60vh;
 }
 
 /* Filter Section Groups */
@@ -395,273 +396,273 @@ input[type="date"].filter-input::-webkit-calendar-picker-indicator {
    ============================================ */
 
 .db-status-container {
-  background: #1a3a1a;
-  border-radius: 8px;
-  padding: 12px;
-  border: 1px solid #2a4a2a;
+    background: #1a3a1a;
+    border-radius: 8px;
+    padding: 12px;
+    border: 1px solid #2a4a2a;
 }
 
 .db-icon-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
 }
 
 .db-icon {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #0d2b0d;
-  border-radius: 12px;
-  transition: all 0.3s ease;
+    position: relative;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0d2b0d;
+    border-radius: 12px;
+    transition: all 0.3s ease;
 }
 
 .db-icon svg {
-  width: 32px;
-  height: 32px;
+    width: 32px;
+    height: 32px;
 }
 
 .db-icon.connected {
-  background: #1a4a1a;
-  box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
+    background: #1a4a1a;
+    box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
 }
 
 .db-icon.disconnected {
-  background: #4a1a1a;
-  box-shadow: 0 0 10px rgba(220, 53, 69, 0.2);
+    background: #4a1a1a;
+    box-shadow: 0 0 10px rgba(220, 53, 69, 0.2);
 }
 
 .db-icon.unknown {
-  background: #3a3a1a;
+    background: #3a3a1a;
 }
 
 .db-status-dot {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid #0d2b0d;
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #0d2b0d;
 }
 
 .db-status-dot.status-connected {
-  background: #28a745;
-  box-shadow: 0 0 5px #28a745;
+    background: #28a745;
+    box-shadow: 0 0 5px #28a745;
 }
 
 .db-status-dot.status-disconnected {
-  background: #dc3545;
+    background: #dc3545;
 }
 
 .db-status-dot.status-unknown {
-  background: #ffc107;
+    background: #ffc107;
 }
 
 .db-info {
-  flex: 1;
+    flex: 1;
 }
 
 .db-name {
-  font-size: 1em;
-  font-weight: bold;
-  color: #7cb342;
+    font-size: 1em;
+    font-weight: bold;
+    color: #7cb342;
 }
 
 .db-status-text {
-  font-size: 0.7em;
-  margin-top: 2px;
+    font-size: 0.7em;
+    margin-top: 2px;
 }
 
 .db-config-btn {
-  width: 100%;
-  padding: 8px 12px;
-  background: #0d2b0d;
-  border: 1px solid forestgreen;
-  color: forestgreen;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  transition: all 0.2s;
+    width: 100%;
+    padding: 8px 12px;
+    background: #0d2b0d;
+    border: 1px solid forestgreen;
+    color: forestgreen;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s;
 }
 
 .db-config-btn:hover {
-  background: forestgreen;
-  color: #0a1f0a;
+    background: forestgreen;
+    color: #0a1f0a;
 }
 
 /* Modal Styles */
 .modal-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #2a4a2a;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #2a4a2a;
 }
 
 .pgadmin-icon {
-  font-size: 32px;
-  background: #1a3a1a;
-  padding: 8px;
-  border-radius: 12px;
+    font-size: 32px;
+    background: #1a3a1a;
+    padding: 8px;
+    border-radius: 12px;
 }
 
 .modal-body {
-  margin-bottom: 20px;
+    margin-bottom: 20px;
 }
 
 .input-group {
-  margin-bottom: 15px;
+    margin-bottom: 15px;
 }
 
 .input-group label {
-  display: block;
-  font-size: 0.75em;
-  margin-bottom: 5px;
-  color: #7cb342;
+    display: block;
+    font-size: 0.75em;
+    margin-bottom: 5px;
+    color: #7cb342;
 }
 
 .input-group input {
-  width: 100%;
-  padding: 8px 12px;
-  background: #0d2b0d;
-  border: 1px solid forestgreen;
-  color: forestgreen;
-  border-radius: 4px;
-  font-size: 0.85em;
+    width: 100%;
+    padding: 8px 12px;
+    background: #0d2b0d;
+    border: 1px solid forestgreen;
+    color: forestgreen;
+    border-radius: 4px;
+    font-size: 0.85em;
 }
 
 .input-group input:focus {
-  outline: none;
-  border-color: #7cb342;
+    outline: none;
+    border-color: #7cb342;
 }
 
 .modal-footer {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .btn-primary, .btn-secondary {
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
 }
 
 .btn-primary {
-  background: forestgreen;
-  border: 1px solid forestgreen;
-  color: #0a1f0a;
+    background: forestgreen;
+    border: 1px solid forestgreen;
+    color: #0a1f0a;
 }
 
 .btn-primary:hover {
-  background: #2e8b2e;
-  transform: translateY(-1px);
+    background: #2e8b2e;
+    transform: translateY(-1px);
 }
 
 .btn-secondary {
-  background: #1a3a1a;
-  border: 1px solid forestgreen;
-  color: forestgreen;
+    background: #1a3a1a;
+    border: 1px solid forestgreen;
+    color: forestgreen;
 }
 
 .btn-secondary:hover {
-  background: #2a4a2a;
+    background: #2a4a2a;
 }
 
 .db-message {
-  margin-top: 15px;
-  padding: 8px;
-  border-radius: 4px;
-  font-size: 0.8em;
+    margin-top: 15px;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
 }
 
 .loading-spinner {
-  color: #ffc107;
+    color: #ffc107;
 }
 
 .success-message {
-  color: #28a745;
-  background: #1a3a1a;
-  padding: 8px;
-  border-radius: 4px;
+    color: #28a745;
+    background: #1a3a1a;
+    padding: 8px;
+    border-radius: 4px;
 }
 
 .error-message {
-  color: #dc3545;
-  background: #3a1a1a;
-  padding: 8px;
-  border-radius: 4px;
+    color: #dc3545;
+    background: #3a1a1a;
+    padding: 8px;
+    border-radius: 4px;
 }
 
 .warning-message {
-  color: #ffc107;
-  background: #3a3a1a;
-  padding: 8px;
-  border-radius: 4px;
+    color: #ffc107;
+    background: #3a3a1a;
+    padding: 8px;
+    border-radius: 4px;
 }
 
 /* Backup Styles */
 .backup-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px;
-  margin: 5px 0;
-  background: #1a3a1a;
-  border-radius: 4px;
-  font-size: 0.75em;
-  flex-wrap: wrap;
-  gap: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px;
+    margin: 5px 0;
+    background: #1a3a1a;
+    border-radius: 4px;
+    font-size: 0.75em;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .backup-name {
-  font-family: monospace;
-  flex: 2;
+    font-family: monospace;
+    flex: 2;
 }
 
 .backup-size {
-  color: #7cb342;
-  flex: 1;
+    color: #7cb342;
+    flex: 1;
 }
 
 .backup-date {
-  color: #aaa;
-  flex: 2;
+    color: #aaa;
+    flex: 2;
 }
 
 .restore-backup {
-  background: #3a1a1a;
-  border: 1px solid #dc3545;
-  color: #ff6666;
-  padding: 4px 10px;
-  border-radius: 4px;
-  cursor: pointer;
+    background: #3a1a1a;
+    border: 1px solid #dc3545;
+    color: #ff6666;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
 .restore-backup:hover {
-  background: #dc3545;
-  color: white;
+    background: #dc3545;
+    color: white;
 }
 
 .no-backups {
-  text-align: center;
-  padding: 20px;
-  color: #7ab87a;
+    text-align: center;
+    padding: 20px;
+    color: #7ab87a;
 }
 
 /* ============================================
@@ -1465,5 +1466,4 @@ canvas {
 }
 
 .fade-in {
-    animation: fadeIn 0.3s ease;
-}
+   
