@@ -18,6 +18,14 @@ console.log('Imports loaded:', {
     Hotspots: !!Hotspots,
     Reports: !!Reports
 });
+// Add to main.js setupEventListeners() function
+document.addEventListener('zoomToLocation', (event) => {
+    const { lat, lng, zoom } = event.detail;
+    if (MapView && MapView.getMap()) {
+        const map = MapView.getMap();
+        map.setView([lat, lng], zoom || 18);
+    }
+});
 
 // ============================================
 // RENDER ALL COMPONENTS
