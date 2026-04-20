@@ -1,6 +1,6 @@
-// components/layermanager.js - Layer Manager Component (QGIS Style)
+// components/layermanager.js - Layer Manager Component
+// Menu as dropdown icon at top, Layer list in left panel
 
-// Available layers configuration
 let availableLayers = [
     { id: 'manholes', name: 'waste_water_manhole', type: 'point', visible: true, color: '#28a745' },
     { id: 'pipelines', name: 'waste_water_pipeline', type: 'line', visible: true, color: '#2b7bff' },
@@ -16,122 +16,87 @@ let layerVisibility = {
 };
 
 // ============================================
-// RENDER FUNCTION - Returns HTML for the component
+// RENDER FUNCTIONS
 // ============================================
 
-function render() {
+// Render the menu icon (dropdown) - goes at top
+function renderMenuIcon() {
     return `
-        <div class="section">
-            <h3>🗺️ MENU</h3>
-            <div id="qgis-menu-bar" class="qgis-menu"></div>
-        </div>
-        <div class="section">
-            <h3>📂 LAYERS</h3>
-            <div id="layer-list" class="layer-list"></div>
-            <button id="addLayerBtn" style="width:100%; margin-top:10px;">+ ADD POSTGIS LAYER</button>
+        <div class="menu-dropdown">
+            <button id="menuIconBtn" class="menu-icon-btn">☰ MENU</button>
+            <div id="menuDropdown" class="menu-dropdown-content">
+                <div class="menu-section">
+                    <div class="menu-section-title">📁 PROJECT</div>
+                    <div class="menu-item" data-action="newProject">📄 New Project</div>
+                    <div class="menu-item" data-action="openProject">📂 Open Project</div>
+                    <div class="menu-item" data-action="saveProject">💾 Save Project</div>
+                    <div class="menu-item" data-action="saveAsProject">📑 Save As</div>
+                    <div class="menu-divider"></div>
+                    <div class="menu-item" data-action="exportMap">📸 Export Map</div>
+                    <div class="menu-item" data-action="printLayout">🖨️ Print Layout</div>
+                </div>
+                <div class="menu-section">
+                    <div class="menu-section-title">✏️ EDIT</div>
+                    <div class="menu-item" data-action="undo">↩️ Undo</div>
+                    <div class="menu-item" data-action="redo">↪️ Redo</div>
+                    <div class="menu-item" data-action="cut">✂️ Cut</div>
+                    <div class="menu-item" data-action="copy">📋 Copy</div>
+                    <div class="menu-item" data-action="paste">📎 Paste</div>
+                </div>
+                <div class="menu-section">
+                    <div class="menu-section-title">👁️ VIEW</div>
+                    <div class="menu-item" data-action="zoomIn">🔍 Zoom In</div>
+                    <div class="menu-item" data-action="zoomOut">🔍 Zoom Out</div>
+                    <div class="menu-item" data-action="fullscreen">🖥️ Full Screen</div>
+                    <div class="menu-item" data-action="refresh">🔄 Refresh</div>
+                </div>
+                <div class="menu-section">
+                    <div class="menu-section-title">🗺️ LAYER</div>
+                    <div class="menu-item" data-action="addLayer">➕ Add Layer</div>
+                    <div class="menu-item" data-action="removeLayer">➖ Remove Layer</div>
+                    <div class="menu-item" data-action="layerProperties">⚙️ Layer Properties</div>
+                </div>
+                <div class="menu-section">
+                    <div class="menu-section-title">⚙️ SETTINGS</div>
+                    <div class="menu-item" data-action="options">🎛️ Options</div>
+                    <div class="menu-item" data-action="projectProperties">📋 Project Properties</div>
+                    <div class="menu-item" data-action="postgis">🗄️ PostGIS Connection</div>
+                </div>
+                <div class="menu-section">
+                    <div class="menu-section-title">🧩 PLUGINS</div>
+                    <div class="menu-item" data-action="pluginManager">🔌 Plugin Manager</div>
+                    <div class="menu-item" data-action="pythonConsole">🐍 Python Console</div>
+                </div>
+                <div class="menu-section">
+                    <div class="menu-section-title">📐 VECTOR</div>
+                    <div class="menu-item" data-action="geometryTools">📐 Geometry Tools</div>
+                    <div class="menu-item" data-action="analysisTools">📊 Analysis Tools</div>
+                    <div class="menu-item" data-action="geoprocessing">🔄 Geoprocessing</div>
+                </div>
+                <div class="menu-section">
+                    <div class="menu-section-title">🖼️ RASTER</div>
+                    <div class="menu-item" data-action="rasterAnalysis">📈 Analysis</div>
+                    <div class="menu-item" data-action="georeferencer">🗺️ Georeferencer</div>
+                </div>
+                <div class="menu-section">
+                    <div class="menu-section-title">💾 DATABASES</div>
+                    <div class="menu-item" data-action="dbManager">🗄️ DB Manager</div>
+                    <div class="menu-item" data-action="importLayer">📥 Import Layer</div>
+                    <div class="menu-item" data-action="exportLayer">📤 Export Layer</div>
+                    <div class="menu-item" data-action="runSQL">📝 Run SQL Query</div>
+                </div>
+            </div>
         </div>
     `;
 }
 
-// ============================================
-// QGIS MENU BAR
-// ============================================
-
-function initQGISMenu() {
-    const menuConfig = [
-        { name: 'Project', items: ['New Project', 'Open Project', 'Save Project', 'Save As', 'Export Map', 'Print Layout', 'Exit'] },
-        { name: 'Edit', items: ['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Delete Selected', 'Select All'] },
-        { name: 'View', items: ['Zoom In', 'Zoom Out', 'Pan', 'Full Screen', 'Refresh', 'Show/Hide Panels'] },
-        { name: 'Layer', items: ['Add Layer', 'Remove Layer', 'Duplicate Layer', 'Layer Properties', 'Set CRS', 'Export Layer'] },
-        { name: 'Settings', items: ['Options', 'Project Properties', 'Custom CRS', 'Snapping Options', 'Authentication'] },
-        { name: 'Plugins', items: ['Manage Plugins', 'Python Console', 'Plugin Manager', 'Install from ZIP'] },
-        { name: 'Vector', items: ['Geometry Tools', 'Analysis Tools', 'Research Tools', 'Geoprocessing', 'Data Management'] },
-        { name: 'Raster', items: ['Analysis', 'Extraction', 'Conversion', 'Georeferencer', 'Align Raster'] },
-        { name: 'Databases', items: ['DB Manager', 'Import Layer', 'Export Layer', 'Run SQL Query', 'PostGIS Connection'] }
-    ];
-    
-    const menuBar = document.getElementById('qgis-menu-bar');
-    if (!menuBar) {
-        console.error('qgis-menu-bar element not found');
-        return;
-    }
-    
-    menuBar.innerHTML = '';
-    
-    for (let i = 0; i < menuConfig.length; i++) {
-        const menu = menuConfig[i];
-        const menuDiv = document.createElement('div');
-        menuDiv.className = 'menu-item';
-        menuDiv.textContent = menu.name;
-        
-        const dropdown = document.createElement('div');
-        dropdown.className = 'dropdown-menu';
-        
-        for (let j = 0; j < menu.items.length; j++) {
-            const item = document.createElement('div');
-            item.className = 'dropdown-item';
-            item.textContent = menu.items[j];
-            item.addEventListener('click', (function(menuName, itemName) {
-                return function() { handleMenuClick(menuName, itemName); };
-            })(menu.name, menu.items[j]));
-            dropdown.appendChild(item);
-        }
-        
-        menuDiv.appendChild(dropdown);
-        menuBar.appendChild(menuDiv);
-    }
-}
-
-// Handle menu clicks
-function handleMenuClick(menu, item) {
-    console.log('Menu clicked:', menu, '->', item);
-    
-    switch(item) {
-        case 'New Project':
-            if(confirm('Create new project? Unsaved changes will be lost.')) {
-                resetProject();
-            }
-            break;
-        case 'Save Project':
-            saveProject();
-            break;
-        case 'Open Project':
-            openProject();
-            break;
-        case 'Export Map':
-            exportMapAsImage();
-            break;
-        case 'Print Layout':
-            window.print();
-            break;
-        case 'Full Screen':
-            toggleFullScreen();
-            break;
-        case 'Add Layer':
-            openAddLayerDialog();
-            break;
-        case 'PostGIS Connection':
-            alert('Connect to PostgreSQL/PostGIS database');
-            break;
-        default:
-            alert(menu + ' -> ' + item);
-    }
-}
-
-// ============================================
-// LAYER MANAGER FUNCTIONS
-// ============================================
-
+// Render the layer list (goes in left panel)
 function renderLayerList() {
-    const layerList = document.getElementById('layer-list');
-    if (!layerList) return;
-    
     if (availableLayers.length === 0) {
-        layerList.innerHTML = '<div class="layer-item">No layers added</div>';
-        return;
+        return '<div class="layer-item">No layers added</div>';
     }
     
-    const layersHtml = availableLayers.map(layer => `
+    return availableLayers.map(layer => `
         <div class="layer-item" data-layer="${layer.id}">
             <input type="checkbox" class="layer-checkbox" data-layer="${layer.id}" ${layer.visible ? 'checked' : ''}>
             <span class="layer-name">${layer.type === 'point' ? '📍' : layer.type === 'line' ? '📏' : '🔷'} ${layer.name}</span>
@@ -142,15 +107,119 @@ function renderLayerList() {
             </div>
         </div>
     `).join('');
+}
+
+// Full render for left panel section
+function render() {
+    return `
+        <div class="section">
+            <h3>🗺️ MAP LAYERS</h3>
+            <div id="layer-list" class="layer-list">
+                ${renderLayerList()}
+            </div>
+            <button id="addLayerBtn" class="add-layer-btn">+ ADD POSTGIS LAYER</button>
+        </div>
+    `;
+}
+
+// ============================================
+// INITIALIZE FUNCTIONS
+// ============================================
+
+function initMenuDropdown() {
+    const menuBtn = document.getElementById('menuIconBtn');
+    const dropdown = document.getElementById('menuDropdown');
     
-    layerList.innerHTML = layersHtml;
-    attachLayerEvents();
+    if (!menuBtn || !dropdown) return;
+    
+    // Toggle dropdown on button click
+    menuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = dropdown.style.display === 'block';
+        dropdown.style.display = isVisible ? 'none' : 'block';
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!menuBtn.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+    
+    // Menu item clicks
+    document.querySelectorAll('.menu-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const action = item.dataset.action;
+            handleMenuAction(action);
+            dropdown.style.display = 'none';
+        });
+    });
+}
+
+function handleMenuAction(action) {
+    console.log('Menu action:', action);
+    
+    switch(action) {
+        case 'newProject':
+            if(confirm('Create new project? Unsaved changes will be lost.')) resetProject();
+            break;
+        case 'saveProject':
+            saveProject();
+            break;
+        case 'openProject':
+            openProject();
+            break;
+        case 'exportMap':
+            alert('Export map as image');
+            break;
+        case 'printLayout':
+            window.print();
+            break;
+        case 'fullscreen':
+            toggleFullScreen();
+            break;
+        case 'addLayer':
+            openAddLayerDialog();
+            break;
+        case 'postgis':
+            alert('Connect to PostgreSQL/PostGIS database');
+            break;
+        case 'zoomIn':
+            if (MapView && MapView.getMap) {
+                const map = MapView.getMap();
+                if (map) map.zoomIn();
+            }
+            break;
+        case 'zoomOut':
+            if (MapView && MapView.getMap) {
+                const map = MapView.getMap();
+                if (map) map.zoomOut();
+            }
+            break;
+        case 'refresh':
+            location.reload();
+            break;
+        default:
+            alert(`Action: ${action} (Coming soon)`);
+    }
+}
+
+// ============================================
+// LAYER MANAGEMENT FUNCTIONS
+// ============================================
+
+function refreshLayerList() {
+    const layerList = document.getElementById('layer-list');
+    if (layerList) {
+        layerList.innerHTML = renderLayerList();
+        attachLayerEvents();
+    }
 }
 
 function attachLayerEvents() {
     // Checkbox events
-    const checkboxes = document.querySelectorAll('.layer-checkbox');
-    checkboxes.forEach(cb => {
+    document.querySelectorAll('.layer-checkbox').forEach(cb => {
         cb.addEventListener('change', function() {
             const layerId = this.dataset.layer;
             toggleLayer(layerId, this.checked);
@@ -158,30 +227,27 @@ function attachLayerEvents() {
     });
     
     // Zoom buttons
-    const zoomBtns = document.querySelectorAll('.layer-zoom');
-    zoomBtns.forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            const layerId = this.dataset.layer;
+    document.querySelectorAll('.layer-zoom').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const layerId = btn.dataset.layer;
             zoomToLayer(layerId);
             e.stopPropagation();
         });
     });
     
     // Style buttons
-    const styleBtns = document.querySelectorAll('.layer-style');
-    styleBtns.forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            const layerId = this.dataset.layer;
+    document.querySelectorAll('.layer-style').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const layerId = btn.dataset.layer;
             changeLayerStyle(layerId);
             e.stopPropagation();
         });
     });
     
     // Remove buttons
-    const removeBtns = document.querySelectorAll('.layer-remove');
-    removeBtns.forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            const layerId = this.dataset.layer;
+    document.querySelectorAll('.layer-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const layerId = btn.dataset.layer;
             removeLayer(layerId);
             e.stopPropagation();
         });
@@ -196,17 +262,10 @@ function attachLayerEvents() {
 
 function toggleLayer(layerId, visible) {
     layerVisibility[layerId] = visible;
-    for (let i = 0; i < availableLayers.length; i++) {
-        if (availableLayers[i].id === layerId) {
-            availableLayers[i].visible = visible;
-            break;
-        }
-    }
+    const layer = availableLayers.find(l => l.id === layerId);
+    if (layer) layer.visible = visible;
     
-    // Dispatch event for map to update
-    const event = new CustomEvent('layerToggled', {
-        detail: { layerId, visible }
-    });
+    const event = new CustomEvent('layerToggled', { detail: { layerId, visible } });
     document.dispatchEvent(event);
 }
 
@@ -217,12 +276,8 @@ function zoomToLayer(layerId) {
 function changeLayerStyle(layerId) {
     const newColor = prompt('Enter color (hex code or name):', '#28a745');
     if (newColor) {
-        for (let i = 0; i < availableLayers.length; i++) {
-            if (availableLayers[i].id === layerId) {
-                availableLayers[i].color = newColor;
-                break;
-            }
-        }
+        const layer = availableLayers.find(l => l.id === layerId);
+        if (layer) layer.color = newColor;
         alert(`Style for ${layerId} changed to ${newColor}`);
     }
 }
@@ -230,15 +285,11 @@ function changeLayerStyle(layerId) {
 function removeLayer(layerId) {
     if (confirm(`Remove layer "${layerId}" from map?`)) {
         const index = availableLayers.findIndex(l => l.id === layerId);
-        if (index !== -1) {
-            availableLayers.splice(index, 1);
-        }
+        if (index !== -1) availableLayers.splice(index, 1);
         delete layerVisibility[layerId];
-        renderLayerList();
+        refreshLayerList();
         
-        const event = new CustomEvent('layerRemoved', {
-            detail: { layerId }
-        });
+        const event = new CustomEvent('layerRemoved', { detail: { layerId } });
         document.dispatchEvent(event);
     }
 }
@@ -247,16 +298,15 @@ function openAddLayerDialog() {
     const layerName = prompt('Enter PostGIS table name:', 'waste_water_manhole');
     if (layerName) {
         const layerId = layerName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        const newLayer = {
+        availableLayers.push({
             id: layerId,
             name: layerName,
             type: 'point',
             visible: true,
             color: '#28a745'
-        };
-        availableLayers.push(newLayer);
+        });
         layerVisibility[layerId] = true;
-        renderLayerList();
+        refreshLayerList();
         alert(`Layer "${layerName}" added.`);
     }
 }
@@ -271,24 +321,13 @@ function resetProject() {
         { id: 'pipelines', name: 'waste_water_pipeline', type: 'line', visible: true, color: '#2b7bff' },
         { id: 'suburbs', name: 'suburbs_boundary', type: 'polygon', visible: false, color: '#ffc107' }
     ];
-    layerVisibility = {
-        manholes: true,
-        pipelines: true,
-        suburbs: false
-    };
-    renderLayerList();
-    
-    const event = new CustomEvent('projectReset');
-    document.dispatchEvent(event);
+    layerVisibility = { manholes: true, pipelines: true, suburbs: false };
+    refreshLayerList();
     alert('Project reset to default');
 }
 
 function saveProject() {
-    const project = {
-        layers: availableLayers,
-        visibility: layerVisibility,
-        savedAt: new Date().toISOString()
-    };
+    const project = { layers: availableLayers, visibility: layerVisibility, savedAt: new Date().toISOString() };
     localStorage.setItem('sewer_project', JSON.stringify(project));
     alert('Project saved!');
 }
@@ -296,24 +335,14 @@ function saveProject() {
 function openProject() {
     const saved = localStorage.getItem('sewer_project');
     if (saved) {
-        try {
-            const project = JSON.parse(saved);
-            availableLayers = project.layers;
-            layerVisibility = project.visibility;
-            renderLayerList();
-            const event = new CustomEvent('projectLoaded', { detail: project });
-            document.dispatchEvent(event);
-            alert('Project loaded!');
-        } catch (e) {
-            alert('Error loading project');
-        }
+        const project = JSON.parse(saved);
+        availableLayers = project.layers;
+        layerVisibility = project.visibility;
+        refreshLayerList();
+        alert('Project loaded!');
     } else {
         alert('No saved project found');
     }
-}
-
-function exportMapAsImage() {
-    alert('Export map as image');
 }
 
 function toggleFullScreen() {
@@ -329,8 +358,8 @@ function toggleFullScreen() {
 // ============================================
 
 function initLayerManager() {
-    renderLayerList();
-    initQGISMenu();
+    refreshLayerList();
+    initMenuDropdown();
 }
 
 // ============================================
@@ -351,6 +380,7 @@ function getAvailableLayers() {
 
 export default {
     render: render,
+    renderMenuIcon: renderMenuIcon,
     init: initLayerManager,
     getLayerVisibility: getLayerVisibility,
     getAvailableLayers: getAvailableLayers,
