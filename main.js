@@ -10,20 +10,12 @@ import Reports from './components/reports.js';
 import ReportProcessor from './components/reportprocessor.js';
 import DBConfig from './components/dbconfig.js';
 
-// Mock data for testing
-const mockManholes = [
-    { id: 1, name: 'MH-001', suburb: 'CBD', diameter: 150, status: 'critical', blockages: 12, lat: -18.9735, lng: 32.6705 },
-    { id: 2, name: 'MH-002', suburb: 'Sakubva', diameter: 100, status: 'warning', blockages: 5, lat: -18.9750, lng: 32.6720 },
-    { id: 3, name: 'MH-003', suburb: 'Dangamvura', diameter: 80, status: 'good', blockages: 3, lat: -18.9780, lng: 32.6750 },
-    { id: 4, name: 'MH-004', suburb: 'CBD', diameter: 120, status: 'critical', blockages: 15, lat: -18.9700, lng: 32.6660 },
-    { id: 5, name: 'MH-005', suburb: 'Chikanga', diameter: 130, status: 'warning', blockages: 7, lat: -18.9650, lng: 32.6600 }
-];
-
-const mockPipelines = [
-    { id: 1, name: 'PL-001', status: 'warning', coordinates: [[-18.9735, 32.6705], [-18.9750, 32.6720]] },
-    { id: 2, name: 'PL-002', status: 'good', coordinates: [[-18.9750, 32.6720], [-18.9780, 32.6750]] },
-    { id: 3, name: 'PL-003', status: 'critical', coordinates: [[-18.9735, 32.6705], [-18.9700, 32.6660]] }
-];
+// ============================================
+// API CONFIGURATION (adjust to your backend URL)
+// ============================================
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000/api'
+  : 'https://mutare-backend.onrender.com/api';   // change to your deployed backend
 
 console.log('Imports loaded:', {
     Header: !!Header,
@@ -37,7 +29,7 @@ console.log('Imports loaded:', {
 });
 
 // ============================================
-// RENDER ALL COMPONENTS
+// RENDER ALL COMPONENTS (unchanged)
 // ============================================
 
 function renderComponents() {
@@ -75,28 +67,21 @@ function renderComponents() {
         console.error('ReportProcessor container or render method not found!');
     }
     
- 
-
-// In renderComponents() - add to toolbar
-const toolbarContainer = document.getElementById('toolbar-container');
-if (toolbarContainer) {
-    toolbarContainer.innerHTML = `
-        <div class="toolbar">
-            <div id="menu-container" class="toolbar-menu-container"></div>
-            ${DBConfig.render()}  <!-- Add DB Config here -->
-            <button id="fitBoundsBtn">🎯 FIT ALL</button>
-            <button id="heatmapBtn">🔥 SHOW HEATMAP</button>
-            <button id="clearHeatmapBtn">❌ CLEAR HEATMAP</button>
-            <button id="exportGeoJSONBtn">📎 EXPORT GEOJSON</button>
-            <button id="printMapBtn">🖨️ PRINT MAP</button>
-        </div>
-    `;
-}
-
-// In initComponents()
-if (DBConfig && typeof DBConfig.init === 'function') {
-    DBConfig.init();
-}
+    // TOOLBAR (DBConfig is rendered inside)
+    const toolbarContainer = document.getElementById('toolbar-container');
+    if (toolbarContainer) {
+        toolbarContainer.innerHTML = `
+            <div class="toolbar">
+                <div id="menu-container" class="toolbar-menu-container"></div>
+                ${DBConfig.render()}
+                <button id="fitBoundsBtn">🎯 FIT ALL</button>
+                <button id="heatmapBtn">🔥 SHOW HEATMAP</button>
+                <button id="clearHeatmapBtn">❌ CLEAR HEATMAP</button>
+                <button id="exportGeoJSONBtn">📎 EXPORT GEOJSON</button>
+                <button id="printMapBtn">🖨️ PRINT MAP</button>
+            </div>
+        `;
+    }
     
     // Add Menu Icon to the toolbar container
     const menuContainer = document.getElementById('menu-container');
@@ -136,10 +121,42 @@ if (DBConfig && typeof DBConfig.init === 'function') {
 }
 
 // ============================================
+// DATA FETCHING HELPERS
+// ============================================
+
+async function fetchAllAssets() {
+    const response = await fetch(`${API_BASE_URL}/assets`);
+    if (!response.ok) throw new Error('Failed to fetch assets');
+    return await response.json();
+}
+
+async function fetchAllJobs() {
+    const response = await fetch(`${API_BASE_URL}/jobs`);
+    if (!response.ok) throw new Error('Failed to fetch jobs');
+    return await response.json();
+}
+
+async function loadInitialMapData() {
+    try {
+        const assets = await fetchAllAssets();
+        const manholes = assets.filter(a => a.asset_type === 'manhole');
+        const pipelines = assets.filter(a => a.asset_type === 'pipeline');
+        
+        if (MapView && MapView.loadManholes) MapView.loadManholes(manholes);
+        if (MapView && MapView.loadPipelines) MapView.loadPipelines(pipelines);
+        
+        return { manholes, pipelines };
+    } catch (err) {
+        console.error('Failed to load initial map data:', err);
+        return { manholes: [], pipelines: [] };
+    }
+}
+
+// ============================================
 // INITIALIZE ALL COMPONENTS
 // ============================================
 
-function initComponents() {
+async function initComponents() {
     console.log('Initializing components...');
     
     // Initialize Map (MUST BE FIRST)
@@ -148,8 +165,9 @@ function initComponents() {
         const map = MapView.init(-18.9735, 32.6705, 13);
         if (map) {
             console.log('Map initialized successfully');
-            MapView.loadManholes(mockManholes);
-            MapView.loadPipelines(mockPipelines);
+            const { manholes, pipelines } = await loadInitialMapData();
+            // If data is already loaded by loadInitialMapData, we can still call updateLayers
+            if (MapView.updateLayers) MapView.updateLayers(manholes, pipelines);
         } else {
             console.error('Map initialization failed');
         }
@@ -157,7 +175,7 @@ function initComponents() {
         console.error('MapView.init is not a function!', MapView);
     }
     
-    // Initialize Filters (attaches click event to FILTER button)
+    // Initialize Filters
     if (Filters && typeof Filters.init === 'function') {
         console.log('Initializing filters...');
         Filters.init();
@@ -165,12 +183,17 @@ function initComponents() {
         console.error('Filters.init is not a function!', Filters);
     }
     
-    // Initialize Report Processor (attaches click event to PROCESS REPORT button)
+    // Initialize Report Processor
     if (ReportProcessor && typeof ReportProcessor.init === 'function') {
         console.log('Initializing report processor...');
         ReportProcessor.init();
     } else {
         console.error('ReportProcessor.init is not a function!', ReportProcessor);
+    }
+    
+    // Initialize DBConfig
+    if (DBConfig && typeof DBConfig.init === 'function') {
+        DBConfig.init();
     }
     
     // Initialize Layer Manager
@@ -185,14 +208,21 @@ function initComponents() {
     if (Statistics && typeof Statistics.init === 'function') {
         console.log('Initializing statistics...');
         Statistics.init();
-        Statistics.update(mockManholes, mockPipelines, []);
+        // Initial statistics will be populated after first filter change or data load
+        const jobs = await fetchAllJobs().catch(() => []);
+        const assets = await fetchAllAssets().catch(() => []);
+        const manholes = assets.filter(a => a.asset_type === 'manhole');
+        const pipelines = assets.filter(a => a.asset_type === 'pipeline');
+        if (Statistics.update) Statistics.update(manholes, pipelines, jobs);
     }
     
     // Initialize Hotspots
     if (Hotspots && typeof Hotspots.init === 'function') {
         console.log('Initializing hotspots...');
         Hotspots.init();
-        Hotspots.update(mockManholes);
+        const assets = await fetchAllAssets().catch(() => []);
+        const manholes = assets.filter(a => a.asset_type === 'manhole');
+        if (Hotspots.update) Hotspots.update(manholes);
     }
     
     // Initialize Reports
@@ -219,11 +249,18 @@ function setupEventListeners() {
     
     const heatmapBtn = document.getElementById('heatmapBtn');
     if (heatmapBtn) {
-        heatmapBtn.addEventListener('click', () => {
-            let manholes = mockManholes;
-            if (Filters && Filters.getFilteredManholes) {
-                const filtered = Filters.getFilteredManholes();
-                if (filtered && filtered.length > 0) manholes = filtered;
+        heatmapBtn.addEventListener('click', async () => {
+            let manholes = [];
+            try {
+                // Get currently filtered manholes (or all if no filter active)
+                if (Filters && Filters.getFilteredManholes) {
+                    manholes = await Filters.getFilteredManholes();
+                } else {
+                    const assets = await fetchAllAssets();
+                    manholes = assets.filter(a => a.asset_type === 'manhole');
+                }
+            } catch (err) {
+                console.error('Error fetching manholes for heatmap:', err);
             }
             if (MapView && MapView.showHeatmapFromManholes) {
                 MapView.showHeatmapFromManholes(manholes);
@@ -257,15 +294,26 @@ function setupEventListeners() {
         }
     });
     
-    // Listen for filter changes
-    document.addEventListener('filtersChanged', (event) => {
+    // Listen for filter changes (from Filters component)
+    document.addEventListener('filtersChanged', async (event) => {
         console.log('Filters changed:', event.detail);
         let { manholes, pipelines } = event.detail;
-        if (!manholes || manholes.length === 0) manholes = mockManholes;
-        if (!pipelines || pipelines.length === 0) pipelines = mockPipelines;
+        // The event already contains the filtered data from the Filters component (which now uses API)
+        if (!manholes || manholes.length === 0) {
+            // Fallback: fetch all manholes
+            const assets = await fetchAllAssets().catch(() => []);
+            manholes = assets.filter(a => a.asset_type === 'manhole');
+        }
+        if (!pipelines || pipelines.length === 0) {
+            const assets = await fetchAllAssets().catch(() => []);
+            pipelines = assets.filter(a => a.asset_type === 'pipeline');
+        }
         
         if (MapView && MapView.updateLayers) MapView.updateLayers(manholes, pipelines);
-        if (Statistics && Statistics.update) Statistics.update(manholes, pipelines, []);
+        
+        // Update statistics and hotspots with filtered data
+        const jobs = await fetchAllJobs().catch(() => []);
+        if (Statistics && Statistics.update) Statistics.update(manholes, pipelines, jobs);
         if (Hotspots && Hotspots.update) Hotspots.update(manholes);
     });
     
@@ -279,12 +327,13 @@ function setupEventListeners() {
     });
     
     // Listen for layer toggles
-    document.addEventListener('layerToggled', (event) => {
+    document.addEventListener('layerToggled', async (event) => {
         const { layerId, visible } = event.detail;
         console.log(`Layer ${layerId} toggled: ${visible}`);
+        // Re-fetch current filtered data (could be expensive; you may want to cache)
         if (Filters && Filters.getFilteredManholes) {
-            const manholes = Filters.getFilteredManholes();
-            const pipelines = Filters.getFilteredPipelines();
+            const manholes = await Filters.getFilteredManholes().catch(() => []);
+            const pipelines = await Filters.getFilteredPipelines().catch(() => []);
             if (MapView && MapView.updateLayers) MapView.updateLayers(manholes, pipelines);
         }
     });
@@ -294,7 +343,7 @@ function setupEventListeners() {
 // INITIALIZATION
 // ============================================
 
-function init() {
+async function init() {
     console.log('Initializing Mutare Sewer Dashboard...');
     
     if (typeof L === 'undefined') {
@@ -304,7 +353,7 @@ function init() {
     }
     
     renderComponents();
-    initComponents();
+    await initComponents();   // now async
     setupEventListeners();
     
     console.log('Dashboard ready!');
