@@ -1,6 +1,13 @@
 // components/reportprocessor.js - Daily Report Processor Component
 // This component goes in the LEFT PANEL below the FILTER button
 
+// ============================================
+// API CONFIGURATION (matches main.js)
+// ============================================
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000/api'
+  : 'https://mutare-backend.onrender.com/api';   // change to your deployed backend
+
 export default {
     render() {
         return `
@@ -60,8 +67,8 @@ Complaints attended to 24 current + 4 from the previous days.
         previewDiv.innerHTML = '';
         
         try {
-            // Call the Python backend API
-            const response = await fetch('http://localhost:5001/api/reports/process', {
+            // Call the backend API (Node.js endpoint that should proxy to Python or implement logic)
+            const response = await fetch(`${API_BASE_URL}/reports/process`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ report_text: reportText })
@@ -92,7 +99,7 @@ Complaints attended to 24 current + 4 from the previous days.
                 statsDiv.innerHTML = `<div class="stat-row error"><span>❌ Error:</span><span>${data.error || 'Unknown error'}</span></div>`;
             }
         } catch (error) {
-            statsDiv.innerHTML = `<div class="stat-row error"><span>❌ Connection Error:</span><span>Make sure the Python backend is running on port 5001</span></div>`;
+            statsDiv.innerHTML = `<div class="stat-row error"><span>❌ Connection Error:</span><span>Make sure the backend is running</span></div>`;
             console.error('Report processing error:', error);
         }
     }
