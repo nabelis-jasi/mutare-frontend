@@ -85,11 +85,24 @@ async function refreshAllData() {
     jobLogsData = jobs;
     complaintsData = complaints;
     
+    // Also fetch vehicle data from backend if available
+    try {
+        const vehicleRes = await fetch(`${API_BASE_URL}/vehicles/latest`);
+        if (vehicleRes.ok) {
+            const vehicleInfo = await vehicleRes.json();
+            if (vehicleInfo.operational) vehicleData.operational = vehicleInfo.operational;
+            if (vehicleInfo.workshop) vehicleData.workshop = vehicleInfo.workshop;
+        }
+    } catch (err) {
+        console.log('No vehicle endpoint, using existing data');
+    }
+    
     // Store globally for compatibility
     window.pipelineData = pipelinesData;
     window.manholeData = manholesData;
     window.jobLogData = jobLogsData;
     window.complaintsData = complaintsData;
+    window.vehicleData = vehicleData;
     
     updateCountsInUI();
 }
@@ -131,15 +144,19 @@ function updateCountsInUI() {
         `;
     }
     
-    // Update vehicle stats if present
+    // Update vehicle stats - CAPTURE FROM reportprocessor
     const vehicleStats = document.querySelector('.vehicle-stats');
-    if (vehicleStats && (vehicleData.operational.length > 0 || vehicleData.workshop.length > 0)) {
-        vehicleStats.innerHTML = `
-            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
-                <div style="color: #28a745;">🚗 Operational: ${vehicleData.operational.map(v => v.brand + ' ' + v.plate).join(', ')}</div>
-                <div style="color: #ffc107;">🔧 Workshop: ${vehicleData.workshop.map(v => v.brand + ' ' + v.plate).join(', ')}</div>
-            </div>
-        `;
+    if (vehicleStats) {
+        if (vehicleData.operational.length > 0 || vehicleData.workshop.length > 0) {
+            vehicleStats.innerHTML = `
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #2a4a2a;">
+                    <div style="color: #28a745; font-size: 11px;">🚗 Operational: ${vehicleData.operational.map(v => `${v.brand} ${v.plate}`).join(', ') || 'None'}</div>
+                    <div style="color: #ffc107; font-size: 11px;">🔧 Workshop: ${vehicleData.workshop.map(v => `${v.brand} ${v.plate}`).join(', ') || 'None'}</div>
+                </div>
+            `;
+        } else {
+            vehicleStats.innerHTML = '';
+        }
     }
 }
 
@@ -644,35 +661,63 @@ function updateReports(pipelines, manholes, jobLogs, complaints, vehicles) {
     updateCountsInUI();
 }
 
-// Listen for report processed events
+// ============================================
+// EVENT LISTENERS FOR REAL-TIME SYNC WITH MAP AND REPORTS
+// ============================================
+
+// Listen for report processed events - update data immediately
 document.addEventListener('reportProcessed', async (e) => {
-    console.log('Report processed, refreshing reports data...', e.detail);
+    console.log('📑 Reports: Report processed, refreshing data...', e.detail);
     
-    // Store vehicle data
-    if (e.detail.vehicles) {
-        vehicleData = e.detail.vehicles;
+    // Store vehicle data from the report
+    if (e.detail && e.detail.vehicles) {
+        vehicleData = {
+            operational: e.detail.vehicles.operational || [],
+            workshop: e.detail.vehicles.workshop || []
+        };
+        window.vehicleData = vehicleData;
+        console.log('📑 Reports: Vehicle data captured:', vehicleData);
     }
     
     // Add new complaints to the complaintsData array
-    if (e.detail.complaints && e.detail.complaints.length > 0) {
+    if (e.detail && e.detail.complaints && e.detail.complaints.length > 0) {
         const newComplaints = e.detail.complaints.map((c, idx) => ({
             id: Date.now() + idx,
             address: c.address,
             original_text: c.original_text,
             status: 'pending',
-            fuzzy_match: c.fuzzy_match || false,
+            fuzzy_match: c.confidence !== 'high',
             buffer_radius: c.buffer_radius || 50,
-            report_date: e.detail.reportDate,
+            report_date: e.detail.reportDate || new Date().toISOString().slice(0,10),
             lat: c.latitude,
             lng: c.longitude
         }));
         
-        // Add to existing complaints
+        // Add to existing complaints (newest first)
         complaintsData = [...newComplaints, ...complaintsData];
         window.complaintsData = complaintsData;
-        updateCountsInUI();
+        console.log('📑 Reports: Added', newComplaints.length, 'new complaints');
     }
     
+    // Full refresh to ensure everything is in sync
+    await refreshAllData();
+});
+
+// Listen for asset status changes (manholes/pipelines updated)
+document.addEventListener('assetStatusChanged', async () => {
+    console.log('📑 Reports: Asset status changed, refreshing data...');
+    await refreshAllData();
+});
+
+// Listen for map data refreshes
+document.addEventListener('mapDataRefreshed', async (e) => {
+    console.log('📑 Reports: Map data refreshed, syncing reports...', e.detail);
+    await refreshAllData();
+});
+
+// Listen for general data refreshes
+document.addEventListener('dataRefreshed', async () => {
+    console.log('📑 Reports: Data refreshed, updating...');
     await refreshAllData();
 });
 
@@ -680,5 +725,11 @@ export default {
     render,
     init,
     update: updateReports,
-    getData: () => ({ pipelines: pipelinesData, manholes: manholesData, jobs: jobLogsData, complaints: complaintsData, vehicles: vehicleData })
+    getData: () => ({ 
+        pipelines: pipelinesData, 
+        manholes: manholesData, 
+        jobs: jobLogsData, 
+        complaints: complaintsData, 
+        vehicles: vehicleData 
+    })
 };

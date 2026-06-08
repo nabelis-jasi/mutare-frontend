@@ -1,36 +1,44 @@
-// components/layermanager.js - Layer Manager Component
+// components/layermanager.js - OPTIMIZED VERSION (No Freezing)
 // Integrated with Flask backend API and mapview module
+// Manages: Manholes (Purple), Pipelines (Lime Green), Suburbs (Black border)
 
 import MapView from './mapview.js';
 
 // API base URL (Flask backend on port 5000)
 const API_BASE_URL = 'http://localhost:5000/api';
 
-// Layer definitions – matches your actual database tables
+// Performance settings
+const MAX_FEATURES_PER_LAYER = 3000;  // Increased for better coverage
+const USE_VIEWPORT_FILTERING = true;   // Only load visible area
+
+// Layer definitions with CORRECT table names
 let availableLayers = [
-    { id: 'manholes', tableName: 'waste_water_manhole', type: 'point', visible: true, color: '#9b59b6', apiEndpoint: '/manholes/list' },
-    { id: 'pipelines', tableName: 'waste_water_pipeline', type: 'line', visible: true, color: '#32cd32', apiEndpoint: '/pipelines/geojson' },
-    { id: 'suburbs', tableName: 'suburbs', type: 'polygon', visible: false, color: '#000000', apiEndpoint: '/suburbs' }
+    { id: 'manholes', tableName: 'waste_water_manhole', type: 'point', visible: true, color: '#32cd32', apiEndpoint: '/manholes/geojson', useViewport: true },
+    { id: 'pipelines', tableName: 'waste_water_pipeline', type: 'line', visible: true, color: '#32cd32', apiEndpoint: '/pipelines/geojson', useViewport: true },
+    { id: 'suburbs', tableName: 'suburbs', type: 'polygon', visible: true, color: '#32cd32', apiEndpoint: '/suburbs/geojson', useViewport: false }
 ];
 
 let layerVisibility = {
     manholes: true,
     pipelines: true,
-    suburbs: false
+    suburbs: true
 };
 
-// Store references to map layers (managed by mapview, but we track visibility)
+// Store references to map layers
 let layerLoaded = {
     manholes: false,
     pipelines: false,
     suburbs: false
 };
 
+// Debounce timer for viewport changes
+let viewportDebounceTimer = null;
+const VIEWPORT_DEBOUNCE_MS = 500;
+
 // ============================================
 // RENDER FUNCTIONS
 // ============================================
 
-// Render the menu icon (dropdown) - goes at top
 function renderMenuIcon() {
     return `
         <div class="menu-dropdown">
@@ -101,7 +109,6 @@ function renderMenuIcon() {
     `;
 }
 
-// Render the layer list (goes in left panel)
 function renderLayerList() {
     if (availableLayers.length === 0) {
         return '<div class="layer-item">No layers added</div>';
@@ -110,7 +117,9 @@ function renderLayerList() {
     return availableLayers.map(layer => `
         <div class="layer-item" data-layer-id="${layer.id}">
             <input type="checkbox" class="layer-checkbox" data-layer-id="${layer.id}" ${layer.visible ? 'checked' : ''}>
-            <span class="layer-name">${layer.type === 'point' ? '📍' : layer.type === 'line' ? '📏' : '🔷'} ${layer.tableName}</span>
+            <span class="layer-name" style="color: ${layer.color};">
+                ${layer.type === 'point' ? '📍' : layer.type === 'line' ? '📏' : '🔷'} ${layer.tableName}
+            </span>
             <div class="layer-controls">
                 <button class="layer-zoom" data-layer-id="${layer.id}" title="Zoom to layer">🔍</button>
                 <button class="layer-style" data-layer-id="${layer.id}" title="Change style">🎨</button>
@@ -120,7 +129,6 @@ function renderLayerList() {
     `).join('');
 }
 
-// Full render for left panel section
 function render() {
     return `
         <div class="section">
@@ -129,16 +137,49 @@ function render() {
                 ${renderLayerList()}
             </div>
             <button id="addLayerBtn" class="add-layer-btn">+ ADD POSTGIS LAYER</button>
+            <div class="performance-info" style="font-size: 10px; color: #666; margin-top: 8px; text-align: center;">
+                ⚡ Viewport filtering active | Max ${MAX_FEATURES_PER_LAYER} features/layer
+            </div>
         </div>
     `;
 }
 
 // ============================================
-// LAYER MANAGEMENT FUNCTIONS (with backend)
+// VIEWPORT HELPER FUNCTIONS
 // ============================================
 
-// Toggle layer visibility – load or clear from map
+function getViewportBounds() {
+    const map = MapView.getMap();
+    if (!map) return null;
+    
+    const bounds = map.getBounds();
+    return {
+        min_lon: bounds.getWest(),
+        max_lon: bounds.getEast(),
+        min_lat: bounds.getSouth(),
+        max_lat: bounds.getNorth()
+    };
+}
+
+function buildViewportUrl(baseUrl, layer) {
+    if (!layer.useViewport || !USE_VIEWPORT_FILTERING) {
+        return `${API_BASE_URL}${baseUrl}?limit=${MAX_FEATURES_PER_LAYER}`;
+    }
+    
+    const bounds = getViewportBounds();
+    if (!bounds) {
+        return `${API_BASE_URL}${baseUrl}?limit=${MAX_FEATURES_PER_LAYER}`;
+    }
+    
+    return `${API_BASE_URL}${baseUrl}?min_lon=${bounds.min_lon}&max_lon=${bounds.max_lon}&min_lat=${bounds.min_lat}&max_lat=${bounds.max_lat}&limit=${MAX_FEATURES_PER_LAYER}`;
+}
+
+// ============================================
+// LAYER MANAGEMENT FUNCTIONS
+// ============================================
+
 async function toggleLayer(layerId, visible) {
+    console.log(`Toggling layer ${layerId} to ${visible}`);
     layerVisibility[layerId] = visible;
     const layer = availableLayers.find(l => l.id === layerId);
     if (layer) layer.visible = visible;
@@ -152,49 +193,85 @@ async function toggleLayer(layerId, visible) {
 
 async function loadLayerFromAPI(layerId) {
     const layer = availableLayers.find(l => l.id === layerId);
-    if (!layer) return;
+    if (!layer) {
+        console.error(`Layer ${layerId} not found`);
+        return;
+    }
     
-    const url = `${API_BASE_URL}${layer.apiEndpoint}`;
+    const url = buildViewportUrl(layer.apiEndpoint, layer);
+    console.log(`Loading layer ${layerId} from ${url}`);
     
     try {
         const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         
+        const featureCount = data.features?.length || 0;
+        console.log(`Loaded ${featureCount} features for ${layerId}`);
+        
         switch (layerId) {
             case 'manholes':
-                // Manholes from /api/manholes/list (flat array)
-                if (MapView && MapView.loadManholes) {
-                    MapView.loadManholes(data);
+                if (MapView && MapView.loadManholesFromGeoJSON) {
+                    MapView.loadManholesFromGeoJSON(data);
+                    console.log(`✅ Loaded ${featureCount} manholes (🟣 Purple=Normal, 🔴 Red=Critical, 🟡 Yellow=Warning)`);
                 }
                 break;
             case 'pipelines':
-                // Pipelines from /api/pipelines/geojson (GeoJSON)
                 if (MapView && MapView.loadPipelinesFromGeoJSON) {
                     MapView.loadPipelinesFromGeoJSON(data);
+                    console.log(`✅ Loaded ${featureCount} pipelines (🟢 Lime Green=Normal, 🔴 Red=Critical, 🟡 Yellow=Warning)`);
                 }
                 break;
             case 'suburbs':
-                // Suburbs from /api/suburbs (GeoJSON)
                 if (MapView && MapView.loadSuburbsFromGeoJSON) {
                     MapView.loadSuburbsFromGeoJSON(data);
+                    console.log(`✅ Loaded ${featureCount} suburbs (Black border, no fill, hover cyan+orange)`);
                 }
                 break;
             default:
                 console.warn('Unknown layer type', layerId);
         }
         layerLoaded[layerId] = true;
+        
+        updateLayerStatus(layerId, featureCount);
+        
     } catch (error) {
         console.error(`Failed to load layer ${layerId}:`, error);
         layerLoaded[layerId] = false;
+        updateLayerStatus(layerId, 0, true);
+    }
+}
+
+function updateLayerStatus(layerId, featureCount, isError = false) {
+    const layerItem = document.querySelector(`.layer-item[data-layer-id="${layerId}"]`);
+    if (layerItem) {
+        const existingStatus = layerItem.querySelector('.layer-status');
+        if (existingStatus) existingStatus.remove();
+        
+        const statusSpan = document.createElement('span');
+        statusSpan.className = 'layer-status';
+        statusSpan.style.fontSize = '9px';
+        statusSpan.style.marginLeft = '8px';
+        statusSpan.style.opacity = '0.7';
+        
+        if (isError) {
+            statusSpan.textContent = '⚠️';
+            statusSpan.style.color = '#dc3545';
+        } else if (featureCount > 0) {
+            statusSpan.textContent = `${featureCount}`;
+            statusSpan.style.color = '#28a745';
+        }
+        
+        layerItem.querySelector('.layer-name')?.appendChild(statusSpan);
     }
 }
 
 function clearLayerFromMap(layerId) {
+    console.log(`Clearing layer ${layerId} from map`);
     switch (layerId) {
         case 'manholes':
-            if (MapView && MapView.loadManholes) {
-                MapView.loadManholes([]);
+            if (MapView && MapView.loadManholesFromGeoJSON) {
+                MapView.loadManholesFromGeoJSON({ type: 'FeatureCollection', features: [] });
             }
             break;
         case 'pipelines':
@@ -213,45 +290,45 @@ function clearLayerFromMap(layerId) {
     layerLoaded[layerId] = false;
 }
 
-// Refresh all layers that are currently visible
-async function refreshVisibleLayers() {
+async function refreshVisibleLayers(debounce = true) {
+    if (debounce) {
+        if (viewportDebounceTimer) clearTimeout(viewportDebounceTimer);
+        viewportDebounceTimer = setTimeout(() => {
+            doRefreshVisibleLayers();
+        }, VIEWPORT_DEBOUNCE_MS);
+    } else {
+        await doRefreshVisibleLayers();
+    }
+}
+
+async function doRefreshVisibleLayers() {
+    console.log('Refreshing visible layers...');
     const visibleLayers = availableLayers.filter(l => l.visible);
+    
     for (const layer of visibleLayers) {
         await loadLayerFromAPI(layer.id);
+        await new Promise(resolve => setTimeout(resolve, 50));
     }
+    console.log('All visible layers refreshed');
 }
 
-// Add a new PostGIS layer from a table name (simplified for now)
-async function addPostGISLayer(tableName) {
-    const layerId = tableName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+function setupViewportListener() {
+    const map = MapView.getMap();
+    if (!map) return;
     
-    // Avoid duplicates
-    if (availableLayers.some(l => l.id === layerId)) {
-        alert(`Layer "${tableName}" already added.`);
-        return;
-    }
-    
-    // Determine type based on table name heuristics (user can change later)
-    let type = 'point';
-    let apiEndpoint = '/assets?asset_type=custom';
-    
-    const newLayer = {
-        id: layerId,
-        tableName: tableName,
-        type: type,
-        visible: true,
-        color: '#3399ff',
-        apiEndpoint: apiEndpoint
-    };
-    
-    availableLayers.push(newLayer);
-    layerVisibility[layerId] = true;
-    refreshLayerList();
-    
-    alert(`Layer "${tableName}" added. You may need to implement custom API endpoint for full functionality.`);
+    map.on('moveend', () => {
+        const viewportLayers = availableLayers.filter(l => l.visible && l.useViewport);
+        if (viewportLayers.length > 0) {
+            console.log('Viewport changed, refreshing layers...');
+            refreshVisibleLayers(true);
+        }
+    });
 }
 
-// Update the layer list UI and reattach events
+// ============================================
+// LAYER UI MANAGEMENT
+// ============================================
+
 function refreshLayerList() {
     const layerList = document.getElementById('layer-list');
     if (layerList) {
@@ -261,7 +338,6 @@ function refreshLayerList() {
 }
 
 function attachLayerEvents() {
-    // Checkbox events
     document.querySelectorAll('.layer-checkbox').forEach(cb => {
         cb.addEventListener('change', async function() {
             const layerId = this.dataset.layerId;
@@ -269,7 +345,6 @@ function attachLayerEvents() {
         });
     });
     
-    // Zoom buttons
     document.querySelectorAll('.layer-zoom').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const layerId = btn.dataset.layerId;
@@ -278,7 +353,6 @@ function attachLayerEvents() {
         });
     });
     
-    // Style buttons
     document.querySelectorAll('.layer-style').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const layerId = btn.dataset.layerId;
@@ -287,7 +361,6 @@ function attachLayerEvents() {
         });
     });
     
-    // Remove buttons
     document.querySelectorAll('.layer-remove').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const layerId = btn.dataset.layerId;
@@ -296,7 +369,6 @@ function attachLayerEvents() {
         });
     });
     
-    // Add layer button
     const addLayerBtn = document.getElementById('addLayerBtn');
     if (addLayerBtn) {
         addLayerBtn.removeEventListener('click', openAddLayerDialog);
@@ -308,26 +380,46 @@ async function zoomToLayer(layerId) {
     const map = MapView.getMap();
     if (!map) return;
     
-    // For now, just fit to current markers or default view
-    // In a full implementation, you'd fetch the layer's extent
-    alert(`Zoom to ${layerId} - Feature coming soon`);
+    const layer = availableLayers.find(l => l.id === layerId);
+    if (!layer) return;
+    
+    switch(layerId) {
+        case 'suburbs':
+            alert('Zoom to suburbs - Use map navigation or click "Refresh"');
+            break;
+        case 'manholes':
+            alert('Zoom to manholes - Pan to areas with purple dots');
+            break;
+        case 'pipelines':
+            alert('Zoom to pipelines - Pan to areas with green lines');
+            break;
+        default:
+            alert(`Zoom to ${layerId} - Use map navigation`);
+    }
 }
 
 function changeLayerStyle(layerId) {
-    const newColor = prompt('Enter color (hex code or name):', '#28a745');
-    if (newColor) {
-        const layer = availableLayers.find(l => l.id === layerId);
-        if (layer) {
-            layer.color = newColor;
-            alert(`Style for ${layerId} changed to ${newColor}`);
-            if (layer.visible) {
-                loadLayerFromAPI(layerId);
-            }
+    const layer = availableLayers.find(l => l.id === layerId);
+    if (!layer) return;
+    
+    const newColor = prompt(`Enter color for ${layer.tableName} (hex code):`, layer.color);
+    if (newColor && newColor.match(/^#[0-9A-Fa-f]{6}$/)) {
+        layer.color = newColor;
+        alert(`Style for ${layer.tableName} changed to ${newColor}`);
+        if (layer.visible) {
+            loadLayerFromAPI(layerId);
         }
+    } else if (newColor) {
+        alert('Please enter a valid hex color (e.g., #FF0000 for red)');
     }
 }
 
 function removeLayer(layerId) {
+    if (layerId === 'manholes' || layerId === 'pipelines' || layerId === 'suburbs') {
+        alert(`Cannot remove default layer: ${layerId}`);
+        return;
+    }
+    
     if (confirm(`Remove layer "${layerId}" from map?`)) {
         const index = availableLayers.findIndex(l => l.id === layerId);
         if (index !== -1) {
@@ -344,6 +436,31 @@ function openAddLayerDialog() {
     if (tableName && tableName.trim()) {
         addPostGISLayer(tableName.trim());
     }
+}
+
+async function addPostGISLayer(tableName) {
+    const layerId = tableName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    
+    if (availableLayers.some(l => l.id === layerId)) {
+        alert(`Layer "${tableName}" already added.`);
+        return;
+    }
+    
+    const newLayer = {
+        id: layerId,
+        tableName: tableName,
+        type: 'point',
+        visible: true,
+        color: '#3399ff',
+        apiEndpoint: `/custom/${tableName}/geojson`,
+        useViewport: true
+    };
+    
+    availableLayers.push(newLayer);
+    layerVisibility[layerId] = true;
+    refreshLayerList();
+    
+    alert(`Layer "${tableName}" added. You may need to implement a custom API endpoint.`);
 }
 
 // ============================================
@@ -413,7 +530,7 @@ async function handleMenuAction(action) {
             if (map) map.zoomOut();
             break;
         case 'refresh':
-            await refreshVisibleLayers();
+            await refreshVisibleLayers(false);
             break;
         default:
             alert(`Action: ${action} (Coming soon)`);
@@ -421,18 +538,18 @@ async function handleMenuAction(action) {
 }
 
 // ============================================
-// PROJECT SAVE/LOAD (using localStorage)
+// PROJECT SAVE/LOAD
 // ============================================
 
 function resetProject() {
     availableLayers = [
-        { id: 'manholes', tableName: 'waste_water_manhole', type: 'point', visible: true, color: '#9b59b6', apiEndpoint: '/manholes/list' },
-        { id: 'pipelines', tableName: 'waste_water_pipeline', type: 'line', visible: true, color: '#32cd32', apiEndpoint: '/pipelines/geojson' },
-        { id: 'suburbs', tableName: 'suburbs', type: 'polygon', visible: false, color: '#000000', apiEndpoint: '/suburbs' }
+        { id: 'manholes', tableName: 'waste_water_manhole', type: 'point', visible: true, color: '#9b59b6', apiEndpoint: '/manholes/geojson', useViewport: true },
+        { id: 'pipelines', tableName: 'waste_water_pipeline', type: 'line', visible: true, color: '#32cd32', apiEndpoint: '/pipelines/geojson', useViewport: true },
+        { id: 'suburbs', tableName: 'suburbs', type: 'polygon', visible: true, color: '#000000', apiEndpoint: '/suburbs/geojson', useViewport: false }
     ];
-    layerVisibility = { manholes: true, pipelines: true, suburbs: false };
+    layerVisibility = { manholes: true, pipelines: true, suburbs: true };
     refreshLayerList();
-    refreshVisibleLayers();
+    refreshVisibleLayers(false);
     alert('Project reset to default');
 }
 
@@ -453,7 +570,7 @@ function openProject() {
         availableLayers = project.layers;
         layerVisibility = project.visibility;
         refreshLayerList();
-        refreshVisibleLayers();
+        refreshVisibleLayers(false);
         alert('Project loaded!');
     } else {
         alert('No saved project found');
@@ -473,15 +590,21 @@ function toggleFullScreen() {
 // ============================================
 
 function initLayerManager() {
+    console.log('LayerManager initializing with performance optimizations...');
     refreshLayerList();
     initMenuDropdown();
+    setupViewportListener();
     setTimeout(() => {
-        refreshVisibleLayers();
+        refreshVisibleLayers(false);
     }, 500);
+    console.log(`LayerManager ready - Max ${MAX_FEATURES_PER_LAYER} features per layer`);
+    console.log('  📍 Manholes: Purple=Normal, Red=Critical, Yellow=Warning');
+    console.log('  📏 Pipelines: Lime Green=Normal, Red=Critical, Yellow=Warning');
+    console.log('  🔷 Suburbs: Black border, no fill, hover cyan+orange');
 }
 
 // ============================================
-// GETTERS (for external use)
+// GETTERS
 // ============================================
 
 function getLayerVisibility() {

@@ -1,8 +1,12 @@
 // ============================================
-// MAPVIEW.JS - Working Map Component
+// MAPVIEW.JS - Complete Working Map Component
 // Supports: Points (manholes), Lines (pipelines), Polygons (suburbs & cadastre)
 // Data fetched from Python Flask backend API
 // Integrated with Report Processor and Statistics
+// FEATURE: Suburb hover highlighting with statistics (REAL DATA)
+// FEATURE: Manhole & Pipeline popups show correct suburb name in cyan blue
+// FEATURE: Suburb popup shows table format with manhole AND pipeline statistics
+// COLORS: Manholes Normal = Purple (#9b59b6) | Pipelines Normal = Lime Green (#32cd32)
 // ============================================
 
 let map = null;
@@ -15,6 +19,10 @@ let heatLayer = null;
 let currentBounds = null;
 let suburbLabels = [];
 let cadastreLabels = [];
+let suburbStats = {}; // Store manhole statistics per suburb
+let suburbPipelineStats = {}; // Store pipeline statistics per suburb
+let suburbGeometries = []; // Store suburb geometries for point-in-polygon lookup
+let suburbBounds = {}; // Store bounding boxes for quick lookup
 
 // Store complaint buffers
 let currentComplaintBuffers = [];
@@ -22,6 +30,24 @@ let originalPipelineColor = '#32cd32';
 
 // Cadastre layer
 let currentCadastreLayer = null;
+
+// Suburb hover styling
+let defaultSuburbStyle = {
+    color: '#000000',      // Black border
+    weight: 3,
+    opacity: 1,
+    fill: false,
+    fillOpacity: 0
+};
+
+let hoverSuburbStyle = {
+    color: '#ff7800',      // Dark orange border
+    weight: 4,
+    opacity: 1,
+    fill: true,
+    fillColor: '#00d4ff',  // Cyan blue fill
+    fillOpacity: 0.3
+};
 
 // ---------- API CONFIGURATION ----------
 const API_BASE_URL = 'http://localhost:5000/api';
@@ -37,7 +63,6 @@ const API_ENDPOINTS = {
 async function fetchLayerFromAPI(endpoint, bounds = null, simplify = 0.001, limit = 5000) {
     let url;
     
-    // For suburbs and cadastre, always fetch all data without viewport filtering
     if (endpoint === '/suburbs/geojson' || endpoint === '/cadastre/all') {
         url = `${API_BASE_URL}${endpoint}`;
         try {
@@ -53,7 +78,6 @@ async function fetchLayerFromAPI(endpoint, bounds = null, simplify = 0.001, limi
         }
     }
     
-    // For manholes and pipelines, use viewport filtering if bounds provided
     if (bounds) {
         const params = new URLSearchParams({
             min_lon: bounds.getWest(),
@@ -81,7 +105,341 @@ async function fetchLayerFromAPI(endpoint, bounds = null, simplify = 0.001, limi
     }
 }
 
-// ---------- REFRESH ALL LAYERS ----------
+// ============================================
+// HELPER: Check if point is inside polygon (Ray Casting Algorithm)
+// ============================================
+
+function isPointInPolygon(lng, lat, polygonCoords) {
+    let inside = false;
+    
+    // Handle both Polygon and MultiPolygon
+    let rings = [];
+    if (polygonCoords.type === 'Polygon') {
+        rings = [polygonCoords.coordinates[0]];
+    } else if (polygonCoords.type === 'MultiPolygon') {
+        for (const poly of polygonCoords.coordinates) {
+            rings.push(poly[0]);
+        }
+    } else if (Array.isArray(polygonCoords)) {
+        // Direct array of coordinates
+        rings = [polygonCoords];
+    }
+    
+    for (const ring of rings) {
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const xi = ring[i][0];
+            const yi = ring[i][1];
+            const xj = ring[j][0];
+            const yj = ring[j][1];
+            
+            const intersect = ((yi > lat) != (yj > lat)) &&
+                (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+    }
+    
+    return inside;
+}
+
+// ============================================
+// FIND SUBURB FOR A POINT - IMPROVED VERSION
+// ============================================
+
+function findSuburbForPoint(lng, lat) {
+    if (!suburbGeometries.length) {
+        console.warn('No suburb geometries loaded yet');
+        return null;
+    }
+    
+    // First check using bounding box for speed
+    let candidates = [];
+    for (const suburb of suburbGeometries) {
+        const bounds = suburb.bounds;
+        if (lng >= bounds.minX && lng <= bounds.maxX && 
+            lat >= bounds.minY && lat <= bounds.maxY) {
+            candidates.push(suburb);
+        }
+    }
+    
+    // Then do precise point-in-polygon check on candidates
+    for (const suburb of candidates) {
+        if (isPointInPolygon(lng, lat, suburb.geometry)) {
+            return suburb.name;
+        }
+    }
+    
+    // If still not found, try all suburbs (slower but thorough)
+    for (const suburb of suburbGeometries) {
+        if (isPointInPolygon(lng, lat, suburb.geometry)) {
+            return suburb.name;
+        }
+    }
+    
+    return null;
+}
+
+// ============================================
+// LOAD SUBURB GEOMETRIES FIRST
+// ============================================
+
+async function loadSuburbGeometries() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/suburbs/geojson`);
+        if (response.ok) {
+            const data = await response.json();
+            suburbGeometries = [];
+            suburbBounds = {};
+            
+            data.features.forEach(feature => {
+                const props = feature.properties;
+                const name = (props.name || props.suburb_nam || 'Unnamed').toUpperCase();
+                const geometry = feature.geometry;
+                
+                // Calculate bounds
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                
+                const updateBounds = (coords) => {
+                    if (Array.isArray(coords[0])) {
+                        coords.forEach(c => updateBounds(c));
+                    } else if (typeof coords[0] === 'number') {
+                        minX = Math.min(minX, coords[0]);
+                        maxX = Math.max(maxX, coords[0]);
+                        minY = Math.min(minY, coords[1]);
+                        maxY = Math.max(maxY, coords[1]);
+                    }
+                };
+                
+                if (geometry.type === 'Polygon') {
+                    updateBounds(geometry.coordinates);
+                } else if (geometry.type === 'MultiPolygon') {
+                    geometry.coordinates.forEach(poly => updateBounds(poly));
+                }
+                
+                suburbGeometries.push({
+                    name: name,
+                    geometry: geometry,
+                    bounds: { minX, maxX, minY, maxY }
+                });
+                
+                suburbBounds[name] = { minX, maxX, minY, maxY };
+            });
+            
+            console.log(`Loaded ${suburbGeometries.length} suburb geometries for point matching`);
+            return true;
+        }
+    } catch (error) {
+        console.error('Error loading suburb geometries:', error);
+    }
+    return false;
+}
+
+// ============================================
+// CALCULATE SUBURB STATISTICS - REAL DATA
+// ============================================
+
+async function calculateSuburbStatistics() {
+    try {
+        // Ensure suburb geometries are loaded first
+        if (suburbGeometries.length === 0) {
+            await loadSuburbGeometries();
+        }
+        
+        // Fetch all manholes
+        const manholesResponse = await fetch(`${API_BASE_URL}/manholes/geojson?limit=20000`);
+        // Fetch all pipelines
+        const pipelinesResponse = await fetch(`${API_BASE_URL}/pipelines/geojson?limit=20000`);
+        
+        // Reset stats
+        for (const suburb of suburbGeometries) {
+            const name = suburb.name;
+            suburbStats[name] = { total: 0, critical: 0, warning: 0, good: 0 };
+            suburbPipelineStats[name] = { total: 0, critical: 0, warning: 0, good: 0 };
+        }
+        suburbStats['UNKNOWN'] = { total: 0, critical: 0, warning: 0, good: 0 };
+        suburbPipelineStats['UNKNOWN'] = { total: 0, critical: 0, warning: 0, good: 0 };
+        
+        // Process manholes
+        if (manholesResponse.ok) {
+            const manholesData = await manholesResponse.json();
+            
+            manholesData.features.forEach(feature => {
+                const coords = feature.geometry?.coordinates;
+                if (!coords || coords.length < 2) return;
+                
+                const lng = coords[0];
+                const lat = coords[1];
+                const props = feature.properties;
+                
+                let foundSuburb = findSuburbForPoint(lng, lat);
+                
+                if (!foundSuburb) {
+                    foundSuburb = 'UNKNOWN';
+                }
+                
+                if (!suburbStats[foundSuburb]) {
+                    suburbStats[foundSuburb] = { total: 0, critical: 0, warning: 0, good: 0 };
+                }
+                
+                suburbStats[foundSuburb].total++;
+                
+                const status = props.status || 'good';
+                if (status === 'critical') {
+                    suburbStats[foundSuburb].critical++;
+                } else if (status === 'warning') {
+                    suburbStats[foundSuburb].warning++;
+                } else {
+                    suburbStats[foundSuburb].good++;
+                }
+            });
+        }
+        
+        // Process pipelines
+        if (pipelinesResponse.ok) {
+            const pipelinesData = await pipelinesResponse.json();
+            
+            pipelinesData.features.forEach(feature => {
+                // Get start point of pipeline
+                let startCoords = null;
+                if (feature.geometry.type === 'LineString') {
+                    startCoords = feature.geometry.coordinates[0];
+                } else if (feature.geometry.type === 'MultiLineString') {
+                    startCoords = feature.geometry.coordinates[0][0];
+                }
+                
+                if (startCoords && startCoords.length >= 2) {
+                    const lng = startCoords[0];
+                    const lat = startCoords[1];
+                    const props = feature.properties;
+                    
+                    let foundSuburb = findSuburbForPoint(lng, lat);
+                    
+                    if (!foundSuburb) {
+                        foundSuburb = 'UNKNOWN';
+                    }
+                    
+                    if (!suburbPipelineStats[foundSuburb]) {
+                        suburbPipelineStats[foundSuburb] = { total: 0, critical: 0, warning: 0, good: 0 };
+                    }
+                    
+                    suburbPipelineStats[foundSuburb].total++;
+                    
+                    const status = props.status || 'good';
+                    if (status === 'critical') {
+                        suburbPipelineStats[foundSuburb].critical++;
+                    } else if (status === 'warning') {
+                        suburbPipelineStats[foundSuburb].warning++;
+                    } else {
+                        suburbPipelineStats[foundSuburb].good++;
+                    }
+                }
+            });
+        }
+        
+        console.log('Suburb Manhole Statistics:', suburbStats);
+        console.log('Suburb Pipeline Statistics:', suburbPipelineStats);
+        
+        // Update suburb popups with real data
+        updateSuburbPopups();
+        
+    } catch (error) {
+        console.error('Error calculating suburb statistics:', error);
+    }
+}
+
+// Update suburb popups with real statistics in TABLE FORMAT
+function updateSuburbPopups() {
+    if (!currentSuburbLayer) return;
+    
+    currentSuburbLayer.eachLayer(layer => {
+        const props = layer.feature?.properties;
+        if (props) {
+            const suburbName = (props.name || props.suburb_nam || 'Unnamed').toUpperCase();
+            const manholeStats = suburbStats[suburbName] || { total: 0, critical: 0, warning: 0, good: 0 };
+            const pipelineStats = suburbPipelineStats[suburbName] || { total: 0, critical: 0, warning: 0, good: 0 };
+            
+            layer.bindPopup(`
+                <div style="min-width: 320px; max-width: 400px;">
+                    <b style="font-size: 16px; color: #00d4ff;">🏘️ ${suburbName}</b>
+                    <hr style="margin: 8px 0; border-color: #333;">
+                    
+                    <!-- MANHOLES TABLE -->
+                    <div style="margin-bottom: 12px;">
+                        <div style="color: #9b59b6; font-weight: bold; margin-bottom: 5px;">🕳️ MANHOLES</div>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <tr style="border-bottom: 1px solid #333;">
+                                <th style="text-align: left; padding: 4px;">Status</th>
+                                <th style="text-align: right; padding: 4px;">Count</th>
+                                <th style="text-align: left; padding: 4px;">Color</th>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px;">Total</td>
+                                <td style="text-align: right; padding: 4px; font-weight: bold; color: #69f0ae;">${manholeStats.total}</td>
+                                <td style="padding: 4px;">-</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px; color: #dc3545;">🔴 Critical</td>
+                                <td style="text-align: right; padding: 4px; color: #dc3545; font-weight: bold;">${manholeStats.critical}</td>
+                                <td style="padding: 4px;"><span style="display: inline-block; width: 12px; height: 12px; background: #dc3545; border-radius: 50%;"></span> Red</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px; color: #ffc107;">🟡 Warning</td>
+                                <td style="text-align: right; padding: 4px; color: #ffc107; font-weight: bold;">${manholeStats.warning}</td>
+                                <td style="padding: 4px;"><span style="display: inline-block; width: 12px; height: 12px; background: #ffc107; border-radius: 50%;"></span> Yellow</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px; color: #9b59b6;">🟣 Normal</td>
+                                <td style="text-align: right; padding: 4px; color: #9b59b6; font-weight: bold;">${manholeStats.good}</td>
+                                <td style="padding: 4px;"><span style="display: inline-block; width: 12px; height: 12px; background: #9b59b6; border-radius: 50%;"></span> Purple</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <!-- PIPELINES TABLE -->
+                    <div style="margin-bottom: 8px;">
+                        <div style="color: #32cd32; font-weight: bold; margin-bottom: 5px;">📏 PIPELINES</div>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <tr style="border-bottom: 1px solid #333;">
+                                <th style="text-align: left; padding: 4px;">Status</th>
+                                <th style="text-align: right; padding: 4px;">Count</th>
+                                <th style="text-align: left; padding: 4px;">Color</th>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px;">Total</td>
+                                <td style="text-align: right; padding: 4px; font-weight: bold; color: #69f0ae;">${pipelineStats.total}</td>
+                                <td style="padding: 4px;">-</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px; color: #dc3545;">🔴 Critical</td>
+                                <td style="text-align: right; padding: 4px; color: #dc3545; font-weight: bold;">${pipelineStats.critical}</td>
+                                <td style="padding: 4px;"><span style="display: inline-block; width: 12px; height: 12px; background: #dc3545; border-radius: 2px;"></span> Red</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px; color: #ffc107;">🟡 Warning</td>
+                                <td style="text-align: right; padding: 4px; color: #ffc107; font-weight: bold;">${pipelineStats.warning}</td>
+                                <td style="padding: 4px;"><span style="display: inline-block; width: 12px; height: 12px; background: #ffc107; border-radius: 2px;"></span> Yellow</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 4px; color: #32cd32;">🟢 Normal</td>
+                                <td style="text-align: right; padding: 4px; color: #32cd32; font-weight: bold;">${pipelineStats.good}</td>
+                                <td style="padding: 4px;"><span style="display: inline-block; width: 12px; height: 12px; background: #32cd32; border-radius: 2px;"></span> Lime Green</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <hr style="margin: 8px 0; border-color: #333;">
+                    <div style="font-size: 10px; color: #888; text-align: center;">
+                        Ward: ${props.ward || 'N/A'} | Zone: ${props.zone || 'N/A'}
+                    </div>
+                </div>
+            `);
+        }
+    });
+}
+
+// ============================================
+// REFRESH ALL LAYERS
+// ============================================
+
 async function refreshAllLayers() {
     if (!map) {
         console.error('Map not initialized');
@@ -95,7 +453,9 @@ async function refreshAllLayers() {
     showLoadingIndicator(true);
     
     try {
-        // Fetch all layers in parallel
+        // Load suburb geometries first (needed for point matching)
+        await loadSuburbGeometries();
+        
         const [manholesGeoJSON, pipelinesGeoJSON, suburbsGeoJSON, complaintsGeoJSON, cadastreGeoJSON] = await Promise.all([
             fetchLayerFromAPI(API_ENDPOINTS.manholes, bounds),
             fetchLayerFromAPI(API_ENDPOINTS.pipelines, bounds),
@@ -107,15 +467,16 @@ async function refreshAllLayers() {
         console.log('Manholes:', manholesGeoJSON.features?.length || 0);
         console.log('Pipelines:', pipelinesGeoJSON.features?.length || 0);
         console.log('Suburbs:', suburbsGeoJSON.features?.length || 0);
-        console.log('Complaints:', complaintsGeoJSON.features?.length || 0);
-        console.log('Cadastre:', cadastreGeoJSON.features?.length || 0);
         
-        // Load them onto the map
+        // Load layers
+        loadSuburbsFromGeoJSON(suburbsGeoJSON);
         loadManholesFromGeoJSON(manholesGeoJSON);
         loadPipelinesFromGeoJSON(pipelinesGeoJSON);
-        loadSuburbsFromGeoJSON(suburbsGeoJSON);
         loadComplaintsFromGeoJSON(complaintsGeoJSON);
         loadCadastreFromGeoJSON(cadastreGeoJSON);
+        
+        // Calculate statistics AFTER loading all data
+        await calculateSuburbStatistics();
         
         document.dispatchEvent(new CustomEvent('mapDataRefreshed', {
             detail: {
@@ -194,13 +555,12 @@ function initMap(centerLat = -18.9735, centerLng = 32.6705, zoom = 13) {
         let refreshTimeout;
         map.on('moveend', function() {
             clearTimeout(refreshTimeout);
-            refreshTimeout = setTimeout(() => refreshAllLayers(), 300);
+            refreshTimeout = setTimeout(() => refreshAllLayers(), 500);
         });
         
         console.log('Map created successfully');
         setTimeout(() => addDropdownTileSelector(), 100);
         
-        // Initial load of data after map is ready
         setTimeout(() => {
             refreshAllLayers();
         }, 1000);
@@ -279,11 +639,17 @@ function addDropdownTileSelector() {
 }
 
 // ============================================
-// LOAD MANHOLES - ONLY AFFECTED ONES CHANGE COLOR
+// LOAD MANHOLES - WITH CORRECT SUBURB NAME
 // ============================================
 function loadManholesFromGeoJSON(geojson) {
-    if (!map) return;
-    currentManholeMarkers.forEach(m => map.removeLayer(m));
+    if (!map) {
+        console.error('Map not initialized, cannot load manholes');
+        return;
+    }
+    
+    currentManholeMarkers.forEach(m => {
+        if (map.hasLayer(m)) map.removeLayer(m);
+    });
     currentManholeMarkers = [];
     
     if (!geojson || !geojson.features || geojson.features.length === 0) {
@@ -297,38 +663,58 @@ function loadManholesFromGeoJSON(geojson) {
     
     geojson.features.forEach(feature => {
         const coords = feature.geometry?.coordinates;
-        if (!coords) return;
+        if (!coords || coords.length < 2) return;
         const props = feature.properties;
         
-        // Color based on database status - ONLY affected manholes will have 'critical' or 'warning'
-        let color = '#9b59b6'; // purple default (normal/good)
+        let color = '#9b59b6';
         let statusText = 'Normal';
         
         if (props.status === 'critical') {
-            color = '#dc3545'; // red
+            color = '#dc3545';
             statusText = 'Critical';
             criticalCount++;
         } else if (props.status === 'warning') {
-            color = '#ffc107'; // orange/yellow
-            statusText = 'Warning - Needs Attention';
+            color = '#ffc107';
+            statusText = 'Warning';
             warningCount++;
         } else {
             goodCount++;
         }
         
-        const marker = L.circleMarker([coords[1], coords[0]], {
-            radius: 8,
+        const lng = coords[0];
+        const lat = coords[1];
+        
+        // Find suburb name using point-in-polygon
+        let suburbName = findSuburbForPoint(lng, lat);
+        
+        if (!suburbName) {
+            suburbName = props.suburb || 'Unknown';
+            if (suburbName === 'Unknown' || suburbName === 'N/A') {
+                suburbName = 'Unknown Location';
+            }
+        }
+        
+        const marker = L.circleMarker([lat, lng], {
+            radius: 7,
             color: color,
             fillColor: color,
-            fillOpacity: 0.7,
+            fillOpacity: 0.8,
             weight: 2
         });
         
         marker.bindPopup(`
-            <b>🕳️ ${props.manhole_id || 'Manhole'}</b><br>
-            Suburb: ${props.suburb || 'N/A'}<br>
-            Status: <span style="color:${color}">${statusText}</span>
+            <div style="min-width: 200px;">
+                <b>🕳️ ${props.manhole_id || 'Manhole'}</b>
+                <hr style="margin: 5px 0; border-color: #333;">
+                <div style="font-size: 12px;">
+                    <div>📍 <b style="color: #00d4ff;">Suburb:</b> <span style="color: #00d4ff;">${suburbName}</span></div>
+                    <div>📊 <b>Status:</b> <span style="color:${color}; font-weight: bold;">${statusText}</span></div>
+                    <div>📏 <b>Depth:</b> ${props.depth || props.mh_depth || 'N/A'} m</div>
+                    <div>🔧 <b>Inspector:</b> ${props.inspector || 'N/A'}</div>
+                </div>
+            </div>
         `);
+        
         marker.addTo(map);
         currentManholeMarkers.push(marker);
     });
@@ -337,11 +723,18 @@ function loadManholesFromGeoJSON(geojson) {
 }
 
 // ============================================
-// LOAD PIPELINES
+// LOAD PIPELINES - WITH CORRECT SUBURB NAME
 // ============================================
 function loadPipelinesFromGeoJSON(geojson) {
-    if (!map) return;
-    if (currentPipelineLayer) map.removeLayer(currentPipelineLayer);
+    if (!map) {
+        console.error('Map not initialized, cannot load pipelines');
+        return;
+    }
+    
+    if (currentPipelineLayer) {
+        if (map.hasLayer(currentPipelineLayer)) map.removeLayer(currentPipelineLayer);
+        currentPipelineLayer = null;
+    }
     
     if (!geojson || !geojson.features || geojson.features.length === 0) {
         console.log('No pipelines data to load');
@@ -351,31 +744,78 @@ function loadPipelinesFromGeoJSON(geojson) {
     currentPipelineLayer = L.geoJSON(geojson, {
         style: (feature) => {
             const status = feature.properties?.status;
-            let color = '#32cd32'; // lime green default
-            if (status === 'Blocked' || status === 'critical') color = '#dc3545';
-            else if (status === 'Partial' || status === 'warning') color = '#ffc107';
-            return { color: color, weight: 4, opacity: 0.8 };
+            let color = '#32cd32';
+            if (status === 'critical') color = '#dc3545';
+            else if (status === 'warning') color = '#ffc107';
+            return { color: color, weight: 3, opacity: 0.8 };
         },
         onEachFeature: (feature, layer) => {
             const props = feature.properties;
-            layer.bindPopup(`<b>📏 Pipe ${props.pipe_id || 'unknown'}</b><br>Status: ${props.status || 'good'}`);
+            const status = props.status || 'good';
+            let statusText = 'Normal';
+            let statusColor = '#32cd32';
+            
+            if (status === 'critical') {
+                statusText = 'Critical';
+                statusColor = '#dc3545';
+            } else if (status === 'warning') {
+                statusText = 'Warning';
+                statusColor = '#ffc107';
+            }
+            
+            // Get start point of pipeline to find suburb
+            let startCoords = null;
+            let suburbName = 'Unknown';
+            
+            if (feature.geometry.type === 'LineString') {
+                startCoords = feature.geometry.coordinates[0];
+            } else if (feature.geometry.type === 'MultiLineString') {
+                startCoords = feature.geometry.coordinates[0][0];
+            }
+            
+            if (startCoords && startCoords.length >= 2) {
+                const foundSuburb = findSuburbForPoint(startCoords[0], startCoords[1]);
+                if (foundSuburb) {
+                    suburbName = foundSuburb;
+                }
+            }
+            
+            layer.bindPopup(`
+                <div style="min-width: 220px;">
+                    <b>📏 ${props.pipe_id || 'Pipeline'}</b>
+                    <hr style="margin: 5px 0; border-color: #333;">
+                    <div style="font-size: 12px;">
+                        <div>📍 <b style="color: #00d4ff;">Suburb:</b> <span style="color: #00d4ff;">${suburbName}</span></div>
+                        <div>📊 <b>Status:</b> <span style="color:${statusColor}; font-weight: bold;">${statusText}</span></div>
+                        <div>🔧 <b>Material:</b> ${props.material || props.pipe_mat || 'N/A'}</div>
+                        <div>📏 <b>Length:</b> ${props.length ? props.length.toFixed(2) : 'N/A'} m</div>
+                        <div>📐 <b>Diameter:</b> ${props.diameter || props.pipe_size || 'N/A'} mm</div>
+                    </div>
+                </div>
+            `);
         }
     }).addTo(map);
     console.log(`Loaded ${geojson.features.length} pipelines`);
 }
 
 // ============================================
-// LOAD SUBURBS - THICK BORDER WITH CYAN, NO FILL, WITH LABELS
+// LOAD SUBURBS
 // ============================================
 function loadSuburbsFromGeoJSON(geojson) {
-    if (!map) return;
+    if (!map) {
+        console.error('Map not initialized, cannot load suburbs');
+        return;
+    }
+    
     if (currentSuburbLayer) {
-        // Remove old labels
         if (suburbLabels.length) {
-            suburbLabels.forEach(label => map.removeLayer(label));
+            suburbLabels.forEach(label => {
+                if (map.hasLayer(label)) map.removeLayer(label);
+            });
             suburbLabels = [];
         }
-        map.removeLayer(currentSuburbLayer);
+        if (map.hasLayer(currentSuburbLayer)) map.removeLayer(currentSuburbLayer);
+        currentSuburbLayer = null;
     }
     
     if (!geojson || !geojson.features || geojson.features.length === 0) {
@@ -383,44 +823,85 @@ function loadSuburbsFromGeoJSON(geojson) {
         return;
     }
     
-    console.log(`Loading ${geojson.features.length} suburbs`);
+    console.log(`Loading ${geojson.features.length} suburbs to map`);
     
     currentSuburbLayer = L.geoJSON(geojson, {
-        style: {
-            color: '#00d4ff',      // Cyan border
-            weight: 3,              // Thick border
-            opacity: 0.8,
-            fill: false,            // No fill
-            fillOpacity: 0
-        },
+        style: defaultSuburbStyle,
         onEachFeature: (feature, layer) => {
             const props = feature.properties;
+            const suburbName = (props.name || props.suburb_nam || 'Unnamed').toUpperCase();
             
-            // Add popup with suburb info
+            const manholeStats = suburbStats[suburbName] || { total: 0, critical: 0, warning: 0, good: 0 };
+            const pipelineStats = suburbPipelineStats[suburbName] || { total: 0, critical: 0, warning: 0, good: 0 };
+            
             layer.bindPopup(`
-                <b>🏘️ ${props.name || props.suburb_nam || 'Unnamed'}</b><br>
-                Township: ${props.township || 'N/A'}<br>
-                Ward: ${props.ward || 'N/A'}<br>
-                Zone: ${props.zone || 'N/A'}<br>
-                Op Zone: ${props.op_zone || 'N/A'}
+                <div style="min-width: 320px; max-width: 400px;">
+                    <b style="font-size: 16px; color: #00d4ff;">🏘️ ${suburbName}</b>
+                    <hr style="margin: 8px 0; border-color: #333;">
+                    
+                    <div style="margin-bottom: 12px;">
+                        <div style="color: #9b59b6; font-weight: bold; margin-bottom: 5px;">🕳️ MANHOLES</div>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <tr style="border-bottom: 1px solid #333;"><th style="text-align: left; padding: 4px;">Status</th><th style="text-align: right; padding: 4px;">Count</th><th style="text-align: left; padding: 4px;">Color</th></tr>
+                            <tr><td style="padding: 4px;">Total</td><td style="text-align: right; padding: 4px; font-weight: bold; color: #69f0ae;">${manholeStats.total}</td><td style="padding: 4px;">-</td></tr>
+                            <tr><td style="padding: 4px; color: #dc3545;">🔴 Critical</td><td style="text-align: right; padding: 4px; color: #dc3545; font-weight: bold;">${manholeStats.critical}</td><td style="padding: 4px;"><span style="display: inline-block; width: 12px; height: 12px; background: #dc3545; border-radius: 50%;"></span> Red</td></tr>
+                            <tr><td style="padding: 4px; color: #ffc107;">🟡 Warning</td><td style="text-align: right; padding: 4px; color: #ffc107; font-weight: bold;">${manholeStats.warning}</td><td style="padding: 4px;"><span style="display: inline-block; width: 12px; height: 12px; background: #ffc107; border-radius: 50%;"></span> Yellow</td></tr>
+                            <tr><td style="padding: 4px; color: #9b59b6;">🟣 Normal</td><td style="text-align: right; padding: 4px; color: #9b59b6; font-weight: bold;">${manholeStats.good}</td><td style="padding: 4px;"><span style="display: inline-block; width: 12px; height: 12px; background: #9b59b6; border-radius: 50%;"></span> Purple</td></tr>
+                        </table>
+                    </div>
+                    
+                    <div style="margin-bottom: 8px;">
+                        <div style="color: #32cd32; font-weight: bold; margin-bottom: 5px;">📏 PIPELINES</div>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <tr style="border-bottom: 1px solid #333;"><th style="text-align: left; padding: 4px;">Status</th><th style="text-align: right; padding: 4px;">Count</th><th style="text-align: left; padding: 4px;">Color</th></tr>
+                            <tr><td style="padding: 4px;">Total</td><td style="text-align: right; padding: 4px; font-weight: bold; color: #69f0ae;">${pipelineStats.total}</td><td style="padding: 4px;">-</td></tr>
+                            <tr><td style="padding: 4px; color: #dc3545;">🔴 Critical</td><td style="text-align: right; padding: 4px; color: #dc3545; font-weight: bold;">${pipelineStats.critical}</td><td style="padding: 4px;"><span style="display: inline-block; width: 12px; height: 12px; background: #dc3545; border-radius: 2px;"></span> Red</td></tr>
+                            <tr><td style="padding: 4px; color: #ffc107;">🟡 Warning</td><td style="text-align: right; padding: 4px; color: #ffc107; font-weight: bold;">${pipelineStats.warning}</td><td style="padding: 4px;"><span style="display: inline-block; width: 12px; height: 12px; background: #ffc107; border-radius: 2px;"></span> Yellow</td></tr>
+                            <tr><td style="padding: 4px; color: #32cd32;">🟢 Normal</td><td style="text-align: right; padding: 4px; color: #32cd32; font-weight: bold;">${pipelineStats.good}</td><td style="padding: 4px;"><span style="display: inline-block; width: 12px; height: 12px; background: #32cd32; border-radius: 2px;"></span> Lime Green</td></tr>
+                        </table>
+                    </div>
+                    
+                    <hr style="margin: 8px 0; border-color: #333;">
+                    <div style="font-size: 10px; color: #888; text-align: center;">
+                        Ward: ${props.ward || 'N/A'} | Zone: ${props.zone || 'N/A'}
+                    </div>
+                </div>
             `);
             
-            // Add label at centroid using label_lng/label_lat from backend
-            if (props.label_lng && props.label_lat) {
-                const label = L.marker([props.label_lat, props.label_lng], {
-                    icon: L.divIcon({
-                        className: 'suburb-label',
-                        html: `<div style="font-family: 'Rajdhani', monospace; font-size: 10px; font-weight: 600; color: #00d4ff; background: rgba(8,15,14,0.7); padding: 2px 6px; border-radius: 3px; border: 0.5px solid rgba(0,212,255,0.3); white-space: nowrap; text-transform: uppercase; letter-spacing: 0.5px;">${props.name || props.suburb_nam}</div>`,
-                        iconSize: [null, null]
-                    }),
-                    interactive: false
-                }).addTo(map);
-                suburbLabels.push(label);
-            }
+            layer.on('mouseover', function() {
+                layer.setStyle(hoverSuburbStyle);
+                const label = suburbLabels.find(l => l.suburbName === suburbName);
+                if (label && map.hasLayer(label)) {
+                    label.setOpacity(1);
+                    if (label.getElement()) label.getElement().style.fontWeight = 'bold';
+                }
+            });
+            
+            layer.on('mouseout', function() {
+                layer.setStyle(defaultSuburbStyle);
+                const label = suburbLabels.find(l => l.suburbName === suburbName);
+                if (label && map.hasLayer(label)) {
+                    label.setOpacity(0.85);
+                    if (label.getElement()) label.getElement().style.fontWeight = 'normal';
+                }
+            });
+            
+            const center = layer.getBounds().getCenter();
+            const label = L.marker(center, {
+                icon: L.divIcon({
+                    html: `<div style="font-family: monospace; font-size: 10px; font-weight: bold; color: black; background: rgba(255,255,255,0.8); padding: 2px 5px; border-radius: 3px; border: 1px solid black; white-space: nowrap;">${suburbName}</div>`,
+                    iconSize: [null, null]
+                }),
+                interactive: false
+            });
+            label.suburbName = suburbName;
+            label.setOpacity(0.85);
+            label.addTo(map);
+            suburbLabels.push(label);
         }
     }).addTo(map);
     
-    console.log(`Suburbs layer added with thick cyan border, no fill, and ${suburbLabels.length} labels`);
+    console.log(`Suburbs layer added with ${suburbLabels.length} labels`);
 }
 
 // ============================================
@@ -428,7 +909,9 @@ function loadSuburbsFromGeoJSON(geojson) {
 // ============================================
 function loadComplaintsFromGeoJSON(geojson) {
     if (!map) return;
-    currentComplaintMarkers.forEach(m => map.removeLayer(m));
+    currentComplaintMarkers.forEach(m => {
+        if (map.hasLayer(m)) map.removeLayer(m);
+    });
     currentComplaintMarkers = [];
     
     if (!geojson || !geojson.features || geojson.features.length === 0) return;
@@ -439,7 +922,7 @@ function loadComplaintsFromGeoJSON(geojson) {
         const props = feature.properties;
         const color = props.status === 'resolved' ? '#28a745' : '#dc3545';
         const marker = L.circleMarker([coords[1], coords[0]], {
-            radius: 10, color: color, fillColor: color, fillOpacity: 0.8, weight: 3
+            radius: 8, color: color, fillColor: color, fillOpacity: 0.8, weight: 2
         });
         marker.bindPopup(`<b>⚠️ Complaint</b><br>Address: ${props.address || 'Unknown'}`);
         marker.addTo(map);
@@ -449,65 +932,45 @@ function loadComplaintsFromGeoJSON(geojson) {
 }
 
 // ============================================
-// LOAD CADASTRE - Thin green border, no fill, with stand number labels
+// LOAD CADASTRE
 // ============================================
 function loadCadastreFromGeoJSON(geojson) {
     if (!map) return;
     if (currentCadastreLayer) {
-        // Remove old labels
         if (cadastreLabels.length) {
-            cadastreLabels.forEach(label => map.removeLayer(label));
+            cadastreLabels.forEach(label => {
+                if (map.hasLayer(label)) map.removeLayer(label);
+            });
             cadastreLabels = [];
         }
-        map.removeLayer(currentCadastreLayer);
+        if (map.hasLayer(currentCadastreLayer)) map.removeLayer(currentCadastreLayer);
+        currentCadastreLayer = null;
     }
     
     if (!geojson || !geojson.features || geojson.features.length === 0) {
-        console.log('No cadastre data to load');
+        console.log('No cadastre data');
         return;
     }
     
     console.log(`Loading ${geojson.features.length} cadastre stands`);
     
     currentCadastreLayer = L.geoJSON(geojson, {
-        style: {
-            color: '#2e7d52',      // Green muted border
-            weight: 1.5,            // Thin border
-            opacity: 0.6,
-            fill: false,            // No fill
-            fillOpacity: 0
-        },
+        style: { color: '#2e7d52', weight: 1, opacity: 0.5, fill: false },
         onEachFeature: (feature, layer) => {
-            const props = feature.properties;
-            const standNumber = props.stand_number;
-            
+            const standNumber = feature.properties?.stand_number;
             if (standNumber) {
-                // Get center of polygon for label placement
                 const center = layer.getBounds().getCenter();
-                
-                // Add stand number label at centroid
                 const label = L.marker(center, {
                     icon: L.divIcon({
-                        className: 'cadastre-label',
-                        html: `<div style="font-family: 'JetBrains Mono', monospace; font-size: 8px; font-weight: 500; color: #a5d6a7; background: rgba(46,82,69,0.8); padding: 2px 4px; border-radius: 2px; border: 0.5px solid #2e7d52; white-space: nowrap;">${standNumber}</div>`,
+                        html: `<div style="font-family: monospace; font-size: 7px; background: rgba(255,255,255,0.7); padding: 1px 3px; border-radius: 2px;">${standNumber}</div>`,
                         iconSize: [null, null]
                     }),
                     interactive: false
                 }).addTo(map);
                 cadastreLabels.push(label);
             }
-            
-            // Add popup with stand info
-            layer.bindPopup(`
-                <b>🏠 Stand: ${standNumber || 'N/A'}</b><br>
-                Suburb: ${props.suburb_name || 'N/A'}<br>
-                Ward: ${props.ward || 'N/A'}<br>
-                Area: ${props.area_hectares ? props.area_hectares.toFixed(2) : 'N/A'} ha
-            `);
         }
     }).addTo(map);
-    
-    console.log(`Cadastre loaded: ${geojson.features.length} stands with ${cadastreLabels.length} labels`);
 }
 
 // ============================================
@@ -524,19 +987,14 @@ function showComplaintsWithBuffers(complaints, reportDate) {
             const markerColor = isExact ? '#dc3545' : '#ff9800';
             
             const marker = L.circleMarker([complaint.latitude, complaint.longitude], {
-                radius: 12, color: markerColor, fillColor: markerColor, fillOpacity: 0.9, weight: 3
+                radius: 10, color: markerColor, fillColor: markerColor, fillOpacity: 0.9, weight: 2
             });
             const bufferCircle = L.circle([complaint.latitude, complaint.longitude], {
                 radius: bufferRadius, color: '#ff9800', fillColor: '#ff9800', fillOpacity: 0.15, weight: 2, className: 'pulse-circle'
             }).addTo(map);
-            marker.bindPopup(`
-                <b>⚠️ Complaint #${idx+1}</b><br>
-                Address: ${complaint.address}<br>
-                Confidence: ${complaint.confidence || 'medium'}<br>
-                Buffer: ${bufferRadius}m
-            `);
+            marker.bindPopup(`<b>⚠️ Complaint #${idx+1}</b><br>Address: ${complaint.address}<br>Buffer: ${bufferRadius}m`);
             marker.addTo(map);
-            currentComplaintBuffers.push({ marker, buffer: bufferCircle, data: complaint });
+            currentComplaintBuffers.push({ marker, buffer: bufferCircle });
         }
     });
     
@@ -544,20 +1002,20 @@ function showComplaintsWithBuffers(complaints, reportDate) {
         const bounds = L.latLngBounds(currentComplaintBuffers.map(c => c.marker.getLatLng()));
         if (bounds.isValid()) map.fitBounds(bounds.pad(0.1));
     }
-    
-    console.log(`Displayed ${currentComplaintBuffers.length} complaints with buffers`);
 }
 
 function clearComplaintBuffers() {
     currentComplaintBuffers.forEach(item => {
-        if (item.marker) map.removeLayer(item.marker);
-        if (item.buffer) map.removeLayer(item.buffer);
+        if (item.marker && map.hasLayer(item.marker)) map.removeLayer(item.marker);
+        if (item.buffer && map.hasLayer(item.buffer)) map.removeLayer(item.buffer);
     });
     currentComplaintBuffers = [];
 }
 
 function clearComplaints() {
-    currentComplaintMarkers.forEach(m => map.removeLayer(m));
+    currentComplaintMarkers.forEach(m => {
+        if (map.hasLayer(m)) map.removeLayer(m);
+    });
     currentComplaintMarkers = [];
 }
 
@@ -566,7 +1024,7 @@ function showComplaintMarkers(complaints) {
     if (!complaints?.length) return;
     complaints.forEach(c => {
         const marker = L.circleMarker([c.latitude, c.longitude], {
-            radius: 10, color: '#dc3545', fillColor: '#dc3545', fillOpacity: 0.8, weight: 3
+            radius: 8, color: '#dc3545', fillColor: '#dc3545', fillOpacity: 0.8, weight: 2
         });
         marker.bindPopup(`<b>⚠️ Complaint</b><br>Address: ${c.address}`);
         marker.addTo(map);
@@ -578,29 +1036,25 @@ function showComplaintMarkers(complaints) {
 // CLEAR LAYERS
 // ============================================
 function clearPipelines() {
-    if (currentPipelineLayer) {
+    if (currentPipelineLayer && map && map.hasLayer(currentPipelineLayer)) {
         map.removeLayer(currentPipelineLayer);
         currentPipelineLayer = null;
     }
 }
 
 function clearSuburbs() {
-    if (currentSuburbLayer) {
-        if (suburbLabels.length) {
-            suburbLabels.forEach(label => map.removeLayer(label));
-            suburbLabels = [];
-        }
+    if (currentSuburbLayer && map && map.hasLayer(currentSuburbLayer)) {
+        suburbLabels.forEach(label => { if (map.hasLayer(label)) map.removeLayer(label); });
+        suburbLabels = [];
         map.removeLayer(currentSuburbLayer);
         currentSuburbLayer = null;
     }
 }
 
 function clearCadastre() {
-    if (currentCadastreLayer) {
-        if (cadastreLabels.length) {
-            cadastreLabels.forEach(label => map.removeLayer(label));
-            cadastreLabels = [];
-        }
+    if (currentCadastreLayer && map && map.hasLayer(currentCadastreLayer)) {
+        cadastreLabels.forEach(label => { if (map.hasLayer(label)) map.removeLayer(label); });
+        cadastreLabels = [];
         map.removeLayer(currentCadastreLayer);
         currentCadastreLayer = null;
     }
@@ -609,30 +1063,22 @@ function clearCadastre() {
 // ============================================
 // HEATMAP FUNCTIONS
 // ============================================
-function showHeatmapFromManholes(manholesArray) {
-    if (!map) return;
-    if (heatLayer) map.removeLayer(heatLayer);
-    if (!manholesArray?.length) return;
-    const points = manholesArray.map(m => [m.lat, m.lng, m.blockages || 1]);
-    heatLayer = L.heatLayer(points, { radius: 25, blur: 15 }).addTo(map);
-}
-
 function showHeatmapFromCurrentMarkers() {
     if (!map || !currentManholeMarkers.length) return;
     const points = currentManholeMarkers.map(m => [m.getLatLng().lat, m.getLatLng().lng, 1]);
-    if (heatLayer) map.removeLayer(heatLayer);
+    if (heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
     heatLayer = L.heatLayer(points, { radius: 25, blur: 15 }).addTo(map);
 }
 
 function showHeatmapFromComplaints() {
     if (!map || !currentComplaintMarkers.length) return;
     const points = currentComplaintMarkers.map(m => [m.getLatLng().lat, m.getLatLng().lng, 1]);
-    if (heatLayer) map.removeLayer(heatLayer);
+    if (heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
     heatLayer = L.heatLayer(points, { radius: 30, blur: 20 }).addTo(map);
 }
 
 function clearHeatmap() {
-    if (heatLayer) map.removeLayer(heatLayer);
+    if (heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
     heatLayer = null;
 }
 
@@ -654,25 +1100,6 @@ function fitToComplaints() {
 }
 
 function getMap() { return map; }
-
-function loadManholes(manholesArray) {
-    if (!manholesArray?.length) return;
-    const geojson = {
-        type: 'FeatureCollection',
-        features: manholesArray.map(m => ({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: [parseFloat(m.lng), parseFloat(m.lat)] },
-            properties: m
-        }))
-    };
-    loadManholesFromGeoJSON(geojson);
-}
-
-function updateLayers(manholes, pipelinesGeoJSON) {
-    console.warn('updateLayers is deprecated. Use refreshAllLayers() instead.');
-    if (manholes?.length) loadManholes(manholes);
-    if (pipelinesGeoJSON) loadPipelinesFromGeoJSON(pipelinesGeoJSON);
-}
 
 function addPulseAnimation() {
     if (!document.getElementById('pulse-style')) {
@@ -696,7 +1123,6 @@ export default {
     loadSuburbsFromGeoJSON: loadSuburbsFromGeoJSON,
     loadComplaintsFromGeoJSON: loadComplaintsFromGeoJSON,
     loadCadastreFromGeoJSON: loadCadastreFromGeoJSON,
-    loadManholes: loadManholes,
     clearPipelines: clearPipelines,
     clearSuburbs: clearSuburbs,
     clearComplaints: clearComplaints,
@@ -704,16 +1130,13 @@ export default {
     showComplaintMarkers: showComplaintMarkers,
     showComplaintsWithBuffers: showComplaintsWithBuffers,
     clearComplaintBuffers: clearComplaintBuffers,
-    showHeatmapFromManholes: showHeatmapFromManholes,
     showHeatmapFromCurrentMarkers: showHeatmapFromCurrentMarkers,
     showHeatmapFromComplaints: showHeatmapFromComplaints,
     clearHeatmap: clearHeatmap,
     fitToBounds: fitToBounds,
-    fitToComplaints: fitToComplaints,
-    updateLayers: updateLayers
+    fitToComplaints: fitToComplaints
 };
 
-// Global function for button callbacks
 window.markComplaintResolved = async (complaintId) => {
     try {
         const response = await fetch(`${API_BASE_URL}/complaints/${complaintId}/resolve`, { method: 'PUT' });
