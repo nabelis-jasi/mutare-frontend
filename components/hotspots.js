@@ -1,11 +1,13 @@
 // components/hotspots.js - Advanced Spatial Analysis Component
 // Now works with dynamic blockage inference from Flask backend data
+// HOTSPOTS: Critical assets appear in RED with click-to-analyze functionality
 // ============================================================
 
 let currentAnalysis = null;
 let selectedHotspot = null;
 let drillDownLevel = 0;
 let breadcrumbPath = [];
+let currentManholesData = [];
 
 // ---------- HELPER: Get numeric blockage count from various field names ----------
 function getBlockageCount(m) {
@@ -28,7 +30,21 @@ function getBlockageCount(m) {
     if (status === 'good') return 0;
   }
   
-  return 0; // default
+  return 0;
+}
+
+// Helper to check if asset is critical
+function isCriticalAsset(m) {
+  const status = String(m.bloc_stat || m.status || '').toLowerCase();
+  return status === 'blocked' || status === 'critical';
+}
+
+// Helper to get status class for styling
+function getStatusClass(m) {
+  if (isCriticalAsset(m)) return 'critical';
+  const status = String(m.bloc_stat || m.status || '').toLowerCase();
+  if (status === 'partial' || status === 'warning') return 'warning';
+  return 'good';
 }
 
 // ---------- Spatial helpers ----------
@@ -193,7 +209,15 @@ function detectHotspots(manholes) {
   const avgBlockages = totalBlockages / manholes.length;
   const stdDev = Math.sqrt(manholes.reduce((sum,m,i) => sum + Math.pow(blockageScores[i] - avgBlockages,2),0) / manholes.length);
   const threshold = avgBlockages + stdDev;
-  const hotspots = manholes.filter((m,i) => blockageScores[i] > threshold).sort((a,b) => getBlockageCount(b) - getBlockageCount(a));
+  
+  // Prioritize critical assets first
+  const hotspots = manholes.filter((m,i) => blockageScores[i] > threshold || isCriticalAsset(m))
+    .sort((a,b) => {
+      // Critical assets come first
+      if (isCriticalAsset(a) && !isCriticalAsset(b)) return -1;
+      if (!isCriticalAsset(a) && isCriticalAsset(b)) return 1;
+      return getBlockageCount(b) - getBlockageCount(a);
+    });
 
   return {
     hotspots: hotspots,
@@ -203,7 +227,8 @@ function detectHotspots(manholes) {
       maxBlockages: Math.max(...blockageScores),
       stdDev: stdDev.toFixed(2),
       threshold: threshold.toFixed(2),
-      hotspotCount: hotspots.length
+      hotspotCount: hotspots.length,
+      criticalCount: manholes.filter(m => isCriticalAsset(m)).length
     },
     clustering: calculateNearestNeighbor(manholes),
     kde: calculateKernelDensity(manholes, 0.5).slice(0,5),
@@ -212,7 +237,32 @@ function detectHotspots(manholes) {
   };
 }
 
-// ---------- DRILL-DOWN FUNCTIONS ----------
+// ---------- ZOOM TO LOCATION ON MAP ----------
+function zoomToLocation(lat, lng, zoom = 18) {
+  if (!isNaN(lat) && !isNaN(lng)) {
+    document.dispatchEvent(new CustomEvent('zoomToLocation', { 
+      detail: { lat, lng, zoom } 
+    }));
+  }
+}
+
+// ---------- SHOW HOTSPOT ON MAP ----------
+function showHotspotOnMap(hotspot) {
+  if (hotspot && hotspot.lat && hotspot.lng) {
+    zoomToLocation(hotspot.lat, hotspot.lng, 18);
+    
+    document.dispatchEvent(new CustomEvent('highlightAsset', {
+      detail: { 
+        assetId: hotspot.manhole_id || hotspot.id,
+        lat: hotspot.lat,
+        lng: hotspot.lng,
+        isCritical: isCriticalAsset(hotspot)
+      }
+    }));
+  }
+}
+
+// ---------- DRILL-DOWN FUNCTIONS - FIXED TO NOT DISAPPEAR ----------
 function showHotspotDetails(hotspot, allManholes) {
   drillDownLevel = 1;
   selectedHotspot = hotspot;
@@ -221,6 +271,10 @@ function showHotspotDetails(hotspot, allManholes) {
     const dist = calculateDistance(hotspot.lat || 0, hotspot.lng || 0, a.lat || 0, a.lng || 0);
     return dist <= 0.5 && a !== hotspot;
   });
+  
+  showHotspotOnMap(hotspot);
+  
+  // Update the panel with drill-down content
   updateSpatialAnalysisWithDrillDown(allManholes, 'hotspot', { hotspot, nearbyAssets });
 }
 
@@ -228,6 +282,9 @@ function showAssetDetails(asset, allManholes) {
   drillDownLevel = 2;
   breadcrumbPath = ['Overview', `Hotspot: ${selectedHotspot?.manhole_id || selectedHotspot?.name || 'Unknown'}`, `Asset: ${asset.manhole_id || asset.name}`];
   const similarAssets = allManholes.filter(a => (a.suburb === asset.suburb || a.suburb_nam === asset.suburb_nam) && a !== asset);
+  
+  zoomToLocation(asset.lat, asset.lng, 19);
+  
   updateSpatialAnalysisWithDrillDown(allManholes, 'asset', { asset, similarAssets });
 }
 
@@ -235,6 +292,9 @@ function showDensityArea(area, allManholes) {
   drillDownLevel = 1;
   breadcrumbPath = ['Overview', `High Density Area (${area.normalizedDensity.toFixed(1)}%)`];
   const nearbyAssets = allManholes.filter(a => calculateDistance(area.lat, area.lng, a.lat || 0, a.lng || 0) <= 0.2);
+  
+  zoomToLocation(area.lat, area.lng, 15);
+  
   updateSpatialAnalysisWithDrillDown(allManholes, 'density', { area, nearbyAssets });
 }
 
@@ -242,6 +302,9 @@ function showClusterDetails(cluster, allManholes) {
   drillDownLevel = 1;
   breadcrumbPath = ['Overview', `Statistical Cluster (${cluster.significance} confidence)`];
   const nearbyAssets = allManholes.filter(a => calculateDistance(cluster.lat || 0, cluster.lng || 0, a.lat || 0, a.lng || 0) <= 0.3);
+  
+  zoomToLocation(cluster.lat, cluster.lng, 16);
+  
   updateSpatialAnalysisWithDrillDown(allManholes, 'cluster', { cluster, nearbyAssets });
 }
 
@@ -249,6 +312,7 @@ function goBackToOverview(allManholes) {
   drillDownLevel = 0;
   selectedHotspot = null;
   breadcrumbPath = ['Overview'];
+  // Restore the original spatial analysis view
   updateSpatialAnalysis(allManholes);
 }
 
@@ -258,201 +322,109 @@ function updateSpatialAnalysisWithDrillDown(manholes, viewType, viewData) {
   if (!container) return;
 
   const breadcrumbHtml = `
-    <div class="breadcrumb-nav">
+    <div class="breadcrumb-nav" style="margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #2e7d32;">
       ${breadcrumbPath.map((crumb, idx) => `
-        <span class="breadcrumb-item ${idx === breadcrumbPath.length-1 ? 'active' : ''}">${crumb}</span>
-        ${idx < breadcrumbPath.length-1 ? '<span class="breadcrumb-sep">›</span>' : ''}
+        <span class="breadcrumb-item ${idx === breadcrumbPath.length-1 ? 'active' : ''}" style="${idx === breadcrumbPath.length-1 ? 'color:#69f0ae;' : 'color:#a5d6a7;'}">${crumb}</span>
+        ${idx < breadcrumbPath.length-1 ? '<span class="breadcrumb-sep" style="color:#2e7d32;"> › </span>' : ''}
       `).join('')}
-      ${drillDownLevel > 0 ? '<button class="back-btn" id="backToOverviewBtn">← Back to Overview</button>' : ''}
+      ${drillDownLevel > 0 ? '<button class="back-btn" id="backToOverviewBtn" style="margin-left:10px; background:#1a472a; border:1px solid #2e7d32; border-radius:4px; color:#69f0ae; padding:2px 8px; cursor:pointer;">← Back</button>' : ''}
     </div>
   `;
 
   if (viewType === 'hotspot' && viewData.hotspot) {
     const h = viewData.hotspot;
+    const isCritical = isCriticalAsset(h);
     container.innerHTML = `
       ${breadcrumbHtml}
       <div class="analysis-section hotspot-detail">
-        <h5>🔥 HOTSPOT DETAILS</h5>
-        <div class="detail-card">
-          <div class="detail-row"><span>Asset ID:</span><strong>${h.manhole_id || h.name || 'N/A'}</strong></div>
-          <div class="detail-row"><span>Location:</span>${h.suburb || h.suburb_nam || 'N/A'}</div>
-          <div class="detail-row"><span>Blockage Score:</span><span class="hotspot-value">${getBlockageCount(h)}</span></div>
-          <div class="detail-row"><span>Coordinates:</span>${(h.lat || 0).toFixed(6)}, ${(h.lng || 0).toFixed(6)}</div>
-          <div class="detail-row"><span>Status:</span><span class="status-${h.status || 'unknown'}">${h.status || h.bloc_stat || 'Unknown'}</span></div>
-          <button class="zoom-btn" data-lat="${h.lat}" data-lng="${h.lng}">📍 Zoom to Location</button>
-          <button class="drilldown-btn" data-asset-id="${h.id}">🔍 View Nearby Assets (${viewData.nearbyAssets?.length || 0})</button>
+        <h5 style="color:#69f0ae; margin-bottom:8px;">🔥 HOTSPOT DETAILS</h5>
+        <div class="detail-card" style="background:#0d2818; padding:10px; border-radius:6px; border-left: 3px solid ${isCritical ? '#dc3545' : '#ffc107'};">
+          <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#7cb342;">Asset ID:</span><strong style="color:${isCritical ? '#ff6b6b' : '#ffd93d'};">${h.manhole_id || h.name || 'N/A'}</strong></div>
+          <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#7cb342;">Location:</span><span style="color:#a5d6a7;">${h.suburb || h.suburb_nam || 'N/A'}</span></div>
+          <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#7cb342;">Blockage Score:</span><span class="hotspot-value" style="color:${isCritical ? '#ff6b6b' : '#ffd93d'};">${getBlockageCount(h)}</span></div>
+          <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#7cb342;">Status:</span><span style="color:${isCritical ? '#ff6b6b' : '#ffd93d'};">${h.bloc_stat || h.status || 'Unknown'}</span></div>
+          <button class="zoom-btn" data-lat="${h.lat}" data-lng="${h.lng}" style="margin-top:8px; background:#1a472a; border:1px solid #2e7d32; border-radius:4px; color:#69f0ae; padding:4px 8px; cursor:pointer;">📍 Zoom to Location</button>
         </div>
       </div>
-      ${viewData.nearbyAssets?.length ? `
-        <div class="analysis-section">
-          <h5>📍 NEARBY ASSETS (within 500m)</h5>
-          <div class="nearby-list">
-            ${viewData.nearbyAssets.slice(0,10).map(a => `
-              <div class="nearby-item" data-lat="${a.lat || 0}" data-lng="${a.lng || 0}" data-asset-id="${a.id}">
-                <span>📌 ${a.manhole_id || a.name || 'Asset'}</span>
-                <span class="blockage-badge">${getBlockageCount(a)} blockages</span>
-                <button class="view-asset-btn">View →</button>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      ` : '<div class="analysis-section"><div class="stat-row">No nearby assets found</div></div>'}
     `;
   } 
   else if (viewType === 'asset' && viewData.asset) {
     const a = viewData.asset;
+    const isCritical = isCriticalAsset(a);
     container.innerHTML = `
       ${breadcrumbHtml}
       <div class="analysis-section asset-detail">
-        <h5>📍 ASSET DETAILS</h5>
-        <div class="detail-card">
-          <div class="detail-row"><span>Asset ID:</span><strong>${a.manhole_id || a.name || 'N/A'}</strong></div>
-          <div class="detail-row"><span>Suburb:</span>${a.suburb || a.suburb_nam || 'N/A'}</div>
-          <div class="detail-row"><span>Blockage Score:</span><span class="hotspot-value">${getBlockageCount(a)}</span></div>
-          <div class="detail-row"><span>Coordinates:</span>${(a.lat || 0).toFixed(6)}, ${(a.lng || 0).toFixed(6)}</div>
-          <div class="detail-row"><span>Diameter:</span>${a.diameter || 'N/A'} mm</div>
-          <div class="detail-row"><span>Material:</span>${a.material || 'N/A'}</div>
-          <button class="zoom-btn" data-lat="${a.lat}" data-lng="${a.lng}">📍 Zoom to Location</button>
+        <h5 style="color:#69f0ae; margin-bottom:8px;">📍 ASSET DETAILS</h5>
+        <div class="detail-card" style="background:#0d2818; padding:10px; border-radius:6px; border-left: 3px solid ${isCritical ? '#dc3545' : '#ffc107'};">
+          <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#7cb342;">Asset ID:</span><strong style="color:${isCritical ? '#ff6b6b' : '#ffd93d'};">${a.manhole_id || a.name || 'N/A'}</strong></div>
+          <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#7cb342;">Suburb:</span><span style="color:#a5d6a7;">${a.suburb || a.suburb_nam || 'N/A'}</span></div>
+          <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#7cb342;">Status:</span><span style="color:${isCritical ? '#ff6b6b' : '#ffd93d'};">${a.bloc_stat || a.status || 'Unknown'}</span></div>
+          <button class="zoom-btn" data-lat="${a.lat}" data-lng="${a.lng}" style="margin-top:8px; background:#1a472a; border:1px solid #2e7d32; border-radius:4px; color:#69f0ae; padding:4px 8px; cursor:pointer;">📍 Zoom to Location</button>
         </div>
       </div>
-      ${viewData.similarAssets?.length ? `
-        <div class="analysis-section">
-          <h5>🏘️ SIMILAR ASSETS IN ${a.suburb || a.suburb_nam || 'same suburb'}</h5>
-          <div class="nearby-list">
-            ${viewData.similarAssets.slice(0,10).map(s => `
-              <div class="nearby-item" data-lat="${s.lat || 0}" data-lng="${s.lng || 0}">
-                <span>📌 ${s.manhole_id || s.name || 'Asset'}</span>
-                <span class="blockage-badge">${getBlockageCount(s)} blockages</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      ` : ''}
-    `;
-  }
-  else if (viewType === 'density' && viewData.area) {
-    container.innerHTML = `
-      ${breadcrumbHtml}
-      <div class="analysis-section density-detail">
-        <h5>🗺️ HIGH DENSITY AREA</h5>
-        <div class="detail-card">
-          <div class="detail-row"><span>Density Score:</span><span class="density-value">${viewData.area.normalizedDensity.toFixed(1)}%</span></div>
-          <div class="detail-row"><span>Coordinates:</span>${(viewData.area.lat || 0).toFixed(6)}, ${(viewData.area.lng || 0).toFixed(6)}</div>
-          <div class="detail-row"><span>Nearby Assets:</span>${viewData.nearbyAssets?.length || 0}</div>
-          <button class="zoom-btn" data-lat="${viewData.area.lat}" data-lng="${viewData.area.lng}">📍 Zoom to Area</button>
-        </div>
-      </div>
-      ${viewData.nearbyAssets?.length ? `
-        <div class="analysis-section">
-          <h5>📍 ASSETS IN THIS AREA</h5>
-          <div class="nearby-list">
-            ${viewData.nearbyAssets.slice(0,10).map(a => `
-              <div class="nearby-item" data-lat="${a.lat || 0}" data-lng="${a.lng || 0}" data-asset-id="${a.id}">
-                <span>📌 ${a.manhole_id || a.name || 'Asset'}</span>
-                <span class="blockage-badge">${getBlockageCount(a)} blockages</span>
-                <button class="view-asset-btn">View →</button>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      ` : ''}
     `;
   }
   else if (viewType === 'cluster' && viewData.cluster) {
+    const c = viewData.cluster;
     container.innerHTML = `
       ${breadcrumbHtml}
       <div class="analysis-section cluster-detail">
-        <h5>🎯 STATISTICAL CLUSTER</h5>
-        <div class="detail-card">
-          <div class="detail-row"><span>Asset:</span><strong>${viewData.cluster.manhole_id || viewData.cluster.name || 'Asset'}</strong></div>
-          <div class="detail-row"><span>Gi* Score:</span>${viewData.cluster.giStar.toFixed(3)}</div>
-          <div class="detail-row"><span>Confidence:</span><span class="confidence-${viewData.cluster.significance.replace('%','')}">${viewData.cluster.significance}</span></div>
-          <div class="detail-row"><span>Nearby Assets:</span>${viewData.nearbyAssets?.length || 0}</div>
-          <button class="zoom-btn" data-lat="${viewData.cluster.lat}" data-lng="${viewData.cluster.lng}">📍 Zoom to Cluster</button>
+        <h5 style="color:#69f0ae; margin-bottom:8px;">🎯 STATISTICAL CLUSTER</h5>
+        <div class="detail-card" style="background:#0d2818; padding:10px; border-radius:6px;">
+          <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#7cb342;">Asset:</span><strong style="color:#69f0ae;">${c.manhole_id || c.name || 'Asset'}</strong></div>
+          <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#7cb342;">Gi* Score:</span><span style="color:#ffd93d;">${c.giStar.toFixed(3)}</span></div>
+          <div class="stat-row" style="display:flex; justify-content:space-between;"><span style="color:#7cb342;">Confidence:</span><span style="color:#69f0ae;">${c.significance}</span></div>
+          <button class="zoom-btn" data-lat="${c.lat}" data-lng="${c.lng}" style="margin-top:8px; background:#1a472a; border:1px solid #2e7d32; border-radius:4px; color:#69f0ae; padding:4px 8px; cursor:pointer;">📍 Zoom to Cluster</button>
         </div>
       </div>
-      ${viewData.nearbyAssets?.length ? `
-        <div class="analysis-section">
-          <h5>📍 ASSETS IN CLUSTER</h5>
-          <div class="nearby-list">
-            ${viewData.nearbyAssets.slice(0,10).map(a => `
-              <div class="nearby-item" data-lat="${a.lat || 0}" data-lng="${a.lng || 0}" data-asset-id="${a.id}">
-                <span>📌 ${a.manhole_id || a.name || 'Asset'}</span>
-                <span class="blockage-badge">${getBlockageCount(a)} blockages</span>
-                <button class="view-asset-btn">View →</button>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      ` : ''}
     `;
   }
   attachDrillDownEvents(manholes);
 }
 
 function updateSpatialAnalysis(manholes) {
+  currentManholesData = manholes;
   const analysis = detectHotspots(manholes);
   const container = document.getElementById('spatialAnalysisStats');
   if (!container) return;
   if (!manholes.length) {
-    container.innerHTML = '<div class="stat-row">No data available for spatial analysis</div>';
+    container.innerHTML = '<div class="stat-row" style="color:#a5d6a7;">No data available for spatial analysis</div>';
     return;
   }
+  
+  const criticalCount = analysis.stats.criticalCount || 0;
+  
   container.innerHTML = `
-    ${drillDownLevel > 0 ? `
-      <div class="breadcrumb-nav">
-        ${breadcrumbPath.map((crumb, idx) => `
-          <span class="breadcrumb-item ${idx === breadcrumbPath.length-1 ? 'active' : ''}">${crumb}</span>
-          ${idx < breadcrumbPath.length-1 ? '<span class="breadcrumb-sep">›</span>' : ''}
-        `).join('')}
-        <button class="back-btn" id="backToOverviewBtn">← Back to Overview</button>
-      </div>
-    ` : ''}
     <div class="analysis-section">
-      <h5>📊 Blockage Statistics</h5>
-      <div class="stat-row"><span>Total Blockage Score:</span><span>${analysis.stats.totalBlockages}</span></div>
-      <div class="stat-row"><span>Average per Asset:</span><span>${analysis.stats.avgBlockages}</span></div>
-      <div class="stat-row"><span>Maximum:</span><span>${analysis.stats.maxBlockages}</span></div>
-      <div class="stat-row"><span>Std Deviation:</span><span>${analysis.stats.stdDev}</span></div>
-      <div class="stat-row"><span>Hotspot Threshold:</span><span>> ${analysis.stats.threshold}</span></div>
-      <div class="stat-row"><span>🔥 Hotspots Found:</span><span class="hotspot-count">${analysis.stats.hotspotCount}</span></div>
+      <h5 style="color:#69f0ae; margin-bottom:8px;">📊 Blockage Statistics</h5>
+      <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="color:#7cb342;">Total Blockage Score:</span><span style="color:#a5d6a7;">${analysis.stats.totalBlockages}</span></div>
+      <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="color:#7cb342;">Average per Asset:</span><span style="color:#a5d6a7;">${analysis.stats.avgBlockages}</span></div>
+      <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="color:#7cb342;">Maximum:</span><span style="color:#a5d6a7;">${analysis.stats.maxBlockages}</span></div>
+      <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="color:#7cb342;">🔥 Hotspots Found:</span><span class="hotspot-count" style="color:#ff6b6b;">${analysis.stats.hotspotCount}</span></div>
+      <div class="stat-row" style="display:flex; justify-content:space-between;"><span style="color:#7cb342;">🔴 Critical Assets:</span><span class="critical-count" style="color:#ff6b6b;">${criticalCount}</span></div>
     </div>
-    <div class="analysis-section">
-      <h5>📍 Nearest Neighbor Analysis</h5>
-      <div class="stat-row"><span>Mean Distance:</span><span>${analysis.clustering?.meanDistance || 'N/A'} km</span></div>
-      <div class="stat-row"><span>Expected Distance:</span><span>${analysis.clustering?.expectedDistance || 'N/A'} km</span></div>
-      <div class="stat-row"><span>NN Ratio:</span><span>${analysis.clustering?.nnRatio || 'N/A'}</span></div>
-      <div class="stat-row"><span>Pattern:</span><span class="pattern-${analysis.clustering?.nnRatio < 0.7 ? 'clustered' : analysis.clustering?.nnRatio > 1.3 ? 'dispersed' : 'random'}">${analysis.clustering?.pattern || 'N/A'}</span></div>
-      <div class="interpretation-text">${analysis.clustering?.interpretation || ''}</div>
+    <div class="analysis-section" style="margin-top:12px;">
+      <h5 style="color:#69f0ae; margin-bottom:8px;">📍 Nearest Neighbor Analysis</h5>
+      <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="color:#7cb342;">NN Ratio:</span><span style="color:#a5d6a7;">${analysis.clustering?.nnRatio || 'N/A'}</span></div>
+      <div class="stat-row" style="display:flex; justify-content:space-between;"><span style="color:#7cb342;">Pattern:</span><span class="pattern-${analysis.clustering?.nnRatio < 0.7 ? 'clustered' : analysis.clustering?.nnRatio > 1.3 ? 'dispersed' : 'random'}" style="color:${analysis.clustering?.nnRatio < 0.7 ? '#ff6b6b' : analysis.clustering?.nnRatio > 1.3 ? '#6bff6b' : '#ffd93d'};">${analysis.clustering?.pattern || 'N/A'}</span></div>
     </div>
-    <div class="analysis-section">
-      <h5>🔄 Spatial Autocorrelation (Moran's I)</h5>
-      <div class="stat-row"><span>Moran's I:</span><span>${analysis.moran?.moransI || 'N/A'}</span></div>
-      <div class="interpretation-text">${analysis.moran?.interpretation || ''}</div>
+    <div class="analysis-section" style="margin-top:12px;">
+      <h5 style="color:#69f0ae; margin-bottom:8px;">🔄 Spatial Autocorrelation</h5>
+      <div class="stat-row" style="display:flex; justify-content:space-between;"><span style="color:#7cb342;">Moran's I:</span><span style="color:#a5d6a7;">${analysis.moran?.moransI || 'N/A'}</span></div>
     </div>
-    <div class="analysis-section">
-      <h5>🎯 Significant Clusters (Getis-Ord Gi*)</h5>
+    <div class="analysis-section" style="margin-top:12px;">
+      <h5 style="color:#69f0ae; margin-bottom:8px;">🎯 Significant Clusters</h5>
       ${analysis.giResults.length ? `
         <div class="cluster-list">
-          ${analysis.giResults.map(r => `
-            <div class="cluster-item" data-lat="${r.lat || 0}" data-lng="${r.lng || 0}" data-asset-id="${r.id}">
-              <span>📍 ${r.manhole_id || r.name || 'Asset'}</span>
-              <span class="confidence-${r.significance.replace('%','')}">${r.significance} confidence</span>
-              <button class="view-cluster-btn">View Cluster →</button>
+          ${analysis.giResults.slice(0,5).map(r => `
+            <div class="cluster-item" data-lat="${r.lat || 0}" data-lng="${r.lng || 0}" data-asset-id="${r.id}" style="display:flex; justify-content:space-between; align-items:center; padding:5px; border-bottom:1px solid #1a3a1a; cursor:pointer;">
+              <span style="color:#a5d6a7;">📍 ${r.manhole_id || r.name || 'Asset'}</span>
+              <span style="color:#69f0ae;">${r.significance}</span>
+              <button class="view-cluster-btn" style="background:#0d2818; border:1px solid #2e7d32; border-radius:3px; color:#69f0ae; padding:2px 6px; cursor:pointer;">View</button>
             </div>
           `).join('')}
         </div>
-      ` : '<div class="stat-row">No significant clusters detected</div>'}
-    </div>
-    <div class="analysis-section">
-      <h5>🗺️ High Density Areas (KDE)</h5>
-      ${analysis.kde.length ? analysis.kde.map(area => `
-        <div class="density-item" data-lat="${area.lat}" data-lng="${area.lng}">
-          <span>📍 Density: ${area.normalizedDensity.toFixed(1)}%</span>
-          <div class="density-bar-container"><div class="density-bar" style="width: ${area.normalizedDensity}%"></div></div>
-          <button class="view-density-btn">View Area →</button>
-        </div>
-      `).join('') : '<div class="stat-row">No density areas detected</div>'}
+      ` : '<div class="stat-row" style="color:#a5d6a7;">No significant clusters detected</div>'}
     </div>
   `;
   attachDrillDownEvents(manholes);
@@ -463,63 +435,24 @@ function attachDrillDownEvents(manholes) {
   if (backBtn) backBtn.onclick = () => goBackToOverview(manholes);
 
   document.querySelectorAll('.zoom-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
+    btn.onclick = function() {
       const lat = parseFloat(this.dataset.lat);
       const lng = parseFloat(this.dataset.lng);
-      if (!isNaN(lat) && !isNaN(lng))
-        document.dispatchEvent(new CustomEvent('zoomToLocation', { detail: { lat, lng, zoom: 18 } }));
-    });
-  });
-
-  document.querySelectorAll('.view-asset-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const parent = this.closest('.nearby-item');
-      if (parent) {
-        const lat = parseFloat(parent.dataset.lat);
-        const lng = parseFloat(parent.dataset.lng);
-        const assetId = parent.dataset.assetId;
-        const asset = manholes.find(a => a.id == assetId);
-        if (asset) showAssetDetails(asset, manholes);
-        else if (!isNaN(lat) && !isNaN(lng))
-          document.dispatchEvent(new CustomEvent('zoomToLocation', { detail: { lat, lng, zoom: 18 } }));
-      }
-    });
+      zoomToLocation(lat, lng, 18);
+    };
   });
 
   document.querySelectorAll('.view-cluster-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
+    btn.onclick = function() {
       const parent = this.closest('.cluster-item');
       if (parent) {
         const lat = parseFloat(parent.dataset.lat);
         const lng = parseFloat(parent.dataset.lng);
         const assetId = parent.dataset.assetId;
-        const cluster = manholes.find(a => a.id == assetId);
+        const cluster = manholes.find(a => a.id == assetId || a.manhole_id == assetId);
         if (cluster) showClusterDetails(cluster, manholes);
       }
-    });
-  });
-
-  document.querySelectorAll('.view-density-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const parent = this.closest('.density-item');
-      if (parent) {
-        const lat = parseFloat(parent.dataset.lat);
-        const lng = parseFloat(parent.dataset.lng);
-        const density = { lat, lng, normalizedDensity: parseFloat(parent.querySelector('.density-bar')?.style.width || '0') };
-        showDensityArea(density, manholes);
-      }
-    });
-  });
-
-  document.querySelectorAll('.hotspot-item').forEach(item => {
-    item.addEventListener('click', function() {
-      const lat = parseFloat(this.dataset.lat);
-      const lng = parseFloat(this.dataset.lng);
-      const asset = manholes.find(a => Math.abs((a.lat || 0) - lat) < 0.0001 && Math.abs((a.lng || 0) - lng) < 0.0001);
-      if (asset) showHotspotDetails(asset, manholes);
-      else if (!isNaN(lat) && !isNaN(lng))
-        document.dispatchEvent(new CustomEvent('zoomToLocation', { detail: { lat, lng, zoom: 18 } }));
-    });
+    };
   });
 }
 
@@ -529,8 +462,13 @@ function attachHotspotClickEvents() {
     const handler = function() {
       const lat = parseFloat(this.dataset.lat);
       const lng = parseFloat(this.dataset.lng);
-      if (!isNaN(lat) && !isNaN(lng))
-        document.dispatchEvent(new CustomEvent('zoomToLocation', { detail: { lat, lng, zoom: 18 } }));
+      const assetId = this.dataset.assetId;
+      const asset = currentManholesData.find(a => a.id == assetId || a.manhole_id == assetId);
+      if (asset) {
+        showHotspotDetails(asset, currentManholesData);
+      } else if (!isNaN(lat) && !isNaN(lng)) {
+        zoomToLocation(lat, lng, 18);
+      }
     };
     item.clickHandler = handler;
     item.addEventListener('click', handler);
@@ -538,21 +476,44 @@ function attachHotspotClickEvents() {
 }
 
 function updateProblemAssets(manholes) {
+  currentManholesData = manholes;
   const analysis = detectHotspots(manholes);
   const container = document.getElementById('problemAssetsList');
   if (container) {
     if (!analysis.hotspots.length) {
-      container.innerHTML = '<div class="stat-row">✅ No significant hotspots detected</div>';
+      container.innerHTML = '<div class="stat-row" style="color:#a5d6a7;">✅ No significant hotspots detected</div>';
     } else {
-      container.innerHTML = analysis.hotspots.slice(0,5).map(m => `
-        <div class="stat-row hotspot-item" data-lat="${m.lat || 0}" data-lng="${m.lng || 0}" data-asset-id="${m.id}">
-          <span>🔥 ${m.manhole_id || m.name || 'Asset'} - ${m.suburb || m.suburb_nam || 'N/A'}</span>
-          <span class="hotspot-value">${getBlockageCount(m)} blockages</span>
-          <button class="view-details-btn">Details →</button>
-        </div>
-      `).join('');
+      container.innerHTML = analysis.hotspots.slice(0,5).map(m => {
+        const isCritical = isCriticalAsset(m);
+        return `
+          <div class="stat-row hotspot-item ${isCritical ? 'critical-hotspot' : ''}" 
+               data-lat="${m.lat || 0}" 
+               data-lng="${m.lng || 0}" 
+               data-asset-id="${m.id || m.manhole_id}"
+               style="display:flex; justify-content:space-between; align-items:center; padding:6px; border-bottom:1px solid #1a3a1a; cursor:pointer; background:${isCritical ? 'rgba(220,53,69,0.1)' : 'transparent'};">
+            <span style="color:${isCritical ? '#ff6b6b' : '#a5d6a7'};">${isCritical ? '🔴' : '🔥'} ${m.manhole_id || m.name || 'Asset'} - ${m.suburb || m.suburb_nam || 'N/A'}</span>
+            <span class="hotspot-value" style="color:${isCritical ? '#ff6b6b' : '#ffd93d'};">${getBlockageCount(m)} blockages</span>
+            <button class="view-details-btn" data-asset-id="${m.id || m.manhole_id}" style="background:#1a472a; border:1px solid #2e7d32; border-radius:3px; color:#69f0ae; padding:2px 6px; cursor:pointer;">Analyze</button>
+          </div>
+        `;
+      }).join('');
     }
   }
+  
+  document.querySelectorAll('.view-details-btn').forEach(btn => {
+    btn.onclick = function(e) {
+      e.stopPropagation();
+      const parent = this.closest('.hotspot-item');
+      if (parent) {
+        const assetId = parent.dataset.assetId;
+        const asset = manholes.find(a => a.id == assetId || a.manhole_id == assetId);
+        if (asset) {
+          showHotspotDetails(asset, manholes);
+        }
+      }
+    };
+  });
+  
   attachHotspotClickEvents();
   attachDrillDownEvents(manholes);
 }
@@ -562,10 +523,10 @@ function updateStatistics(manholes) {
   const statsContainer = document.getElementById('hotspotStats');
   if (statsContainer) {
     statsContainer.innerHTML = `
-      <div class="stat-row"><span>📊 Total Blockage Score:</span><span>${analysis.stats.totalBlockages}</span></div>
-      <div class="stat-row"><span>📈 Average per Asset:</span><span>${analysis.stats.avgBlockages}</span></div>
-      <div class="stat-row"><span>⚠️ Worst Blockage:</span><span>${analysis.stats.maxBlockages}</span></div>
-      <div class="stat-row"><span>🔥 Hotspots Detected:</span><span class="hotspot-count">${analysis.stats.hotspotCount}</span></div>
+      <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="color:#7cb342;">📊 Total Blockage Score:</span><span style="color:#a5d6a7;">${analysis.stats.totalBlockages}</span></div>
+      <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="color:#7cb342;">📈 Average per Asset:</span><span style="color:#a5d6a7;">${analysis.stats.avgBlockages}</span></div>
+      <div class="stat-row" style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="color:#7cb342;">⚠️ Worst Blockage:</span><span style="color:#a5d6a7;">${analysis.stats.maxBlockages}</span></div>
+      <div class="stat-row" style="display:flex; justify-content:space-between;"><span style="color:#7cb342;">🔥 Hotspots Detected:</span><span class="hotspot-count" style="color:#ff6b6b;">${analysis.stats.hotspotCount}</span></div>
     `;
   }
 }
@@ -575,16 +536,17 @@ function render() {
   return `
     <div class="hotspots-container">
       <div class="chart-container">
-        <h4>🔥 PROBLEM ASSETS (Top 5 Hotspots)</h4>
-        <div id="problemAssetsList" class="hotspot-list"><div class="stat-row">📋 Loading assets...</div></div>
+        <h4 style="color:#69f0ae; margin-bottom:8px;">🔥 CRITICAL & PROBLEM ASSETS (Top 5)</h4>
+        <div id="problemAssetsList" class="hotspot-list" style="max-height: 200px; overflow-y: auto;"><div class="stat-row" style="color:#a5d6a7;">📋 Loading assets...</div></div>
+        <p style="font-size: 10px; color: #ff6b6b; margin-top: 8px;">🔴 Red = Critical / Blocked | 🔥 Click any asset to analyze hotspot on map</p>
       </div>
       <div class="chart-container">
-        <h4>📊 SPATIAL ANALYSIS REPORT</h4>
-        <div id="spatialAnalysisStats"><div class="stat-row">Loading spatial analysis...</div></div>
+        <h4 style="color:#69f0ae; margin-bottom:8px;">📊 SPATIAL ANALYSIS REPORT</h4>
+        <div id="spatialAnalysisStats" style="max-height: 350px; overflow-y: auto;"><div class="stat-row" style="color:#a5d6a7;">Loading spatial analysis...</div></div>
       </div>
       <div class="chart-container">
-        <h4>📈 SUMMARY STATISTICS</h4>
-        <div id="hotspotStats"><div class="stat-row">Loading statistics...</div></div>
+        <h4 style="color:#69f0ae; margin-bottom:8px;">📈 SUMMARY STATISTICS</h4>
+        <div id="hotspotStats"><div class="stat-row" style="color:#a5d6a7;">Loading statistics...</div></div>
       </div>
     </div>
   `;

@@ -41,6 +41,9 @@ let suburbStats         = {};
 let suburbPipelineStats = {};
 let suburbGeometries    = [];
 
+// Store current manhole data for hotspots
+let currentManholesData = [];
+
 // Tile definitions
 const TILES = {
     osm:       { label: 'Street',      icon: '🗺️', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',                                                   attr: '© OpenStreetMap',    maxZoom: 19 },
@@ -218,14 +221,14 @@ function buildSuburbPopup(name, props) {
     <tr><td style="color:#dc3545">🔴 Critical</td><td style="text-align:right;color:#dc3545;font-weight:bold">${mh.critical}</td></tr>
     <tr><td style="color:#ffc107">🟡 Warning</td> <td style="text-align:right;color:#ffc107;font-weight:bold">${mh.warning}</td></tr>
     <tr><td style="color:#9b59b6">🟣 Normal</td>  <td style="text-align:right;color:#9b59b6;font-weight:bold">${mh.good}</td></tr>
-  </table>
+   </table>
   <div style="color:#32cd32;font-weight:bold;margin-bottom:4px">📏 PIPELINES</div>
   <table style="width:100%;border-collapse:collapse;font-size:11px">
     <tr><td>Total</td><td style="text-align:right;color:#69f0ae;font-weight:bold">${pl.total}</td></tr>
     <tr><td style="color:#dc3545">🔴 Critical</td><td style="text-align:right;color:#dc3545;font-weight:bold">${pl.critical}</td></tr>
     <tr><td style="color:#ffc107">🟡 Warning</td> <td style="text-align:right;color:#ffc107;font-weight:bold">${pl.warning}</td></tr>
     <tr><td style="color:#32cd32">🟢 Normal</td>  <td style="text-align:right;color:#32cd32;font-weight:bold">${pl.good}</td></tr>
-  </table>
+   </table>
   <hr style="border-color:#333;margin:6px 0">
   <div style="font-size:10px;color:#888;text-align:center">Ward: ${props?.ward || 'N/A'} | Zone: ${props?.zone || 'N/A'}</div>
 </div>`;
@@ -271,6 +274,9 @@ function loadManholesFromGeoJSON(geojson) {
     // Remove existing markers
     allManholeMarkers.forEach(m => map.hasLayer(m) && map.removeLayer(m));
     allManholeMarkers = [];
+    
+    // Store current manhole data for hotspots
+    currentManholesData = [];
 
     for (const f of geojson?.features || []) {
         const [lng, lat] = f.geometry?.coordinates || [];
@@ -287,10 +293,34 @@ function loadManholesFromGeoJSON(geojson) {
         marker._filterStatus = props.status || 'good';
         marker._lng = lng; marker._lat = lat;
         marker._props = props;
+        marker._id = props.manhole_id;
 
         marker.addTo(map);
         allManholeMarkers.push(marker);
+        
+        // Store for hotspots
+        currentManholesData.push({
+            id: props.manhole_id,
+            manhole_id: props.manhole_id,
+            name: props.manhole_id,
+            lat: lat,
+            lng: lng,
+            suburb: suburb || props.suburb || 'Unknown',
+            suburb_nam: suburb || props.suburb || 'Unknown',
+            status: props.status || 'good',
+            bloc_stat: props.status || 'good',
+            depth: props.depth,
+            inspector: props.inspector,
+            inspection_date: props.inspection_date
+        });
     }
+    
+    // Update hotspots component with the data
+    if (window.hotspotsComponent && currentManholesData.length) {
+        window.hotspotsComponent.update(currentManholesData);
+        console.log(`🔥 Hotspots component updated with ${currentManholesData.length} manholes`);
+    }
+    
     console.log(`✅ Manhole markers: ${allManholeMarkers.length}`);
 }
 
@@ -621,6 +651,90 @@ function addDropdownTileSelector() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ZOOM TO LOCATION FOR HOTSPOTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function zoomToLocation(lat, lng, zoom = 18) {
+    if (map && lat && lng) {
+        map.setView([lat, lng], zoom);
+        
+        // Add temporary highlight marker
+        if (window.tempHighlightMarker) {
+            map.removeLayer(window.tempHighlightMarker);
+        }
+        window.tempHighlightMarker = L.circleMarker([lat, lng], {
+            radius: 12,
+            color: '#ff4444',
+            weight: 3,
+            fillColor: '#ff0000',
+            fillOpacity: 0.5,
+            className: 'hotspot-highlight'
+        }).addTo(map);
+        
+        // Remove highlight after 3 seconds
+        setTimeout(() => {
+            if (window.tempHighlightMarker) {
+                map.removeLayer(window.tempHighlightMarker);
+                window.tempHighlightMarker = null;
+            }
+        }, 3000);
+    }
+}
+
+// Add hotspot event listeners
+function addHotspotEventListeners() {
+    document.addEventListener('zoomToLocation', (e) => {
+        const { lat, lng, zoom } = e.detail;
+        zoomToLocation(lat, lng, zoom || 18);
+    });
+    
+    document.addEventListener('highlightAsset', (e) => {
+        const { assetId, lat, lng, isCritical } = e.detail;
+        if (map && lat && lng) {
+            map.setView([lat, lng], 18);
+            
+            if (window.highlightMarker) {
+                map.removeLayer(window.highlightMarker);
+            }
+            
+            const highlightColor = isCritical ? '#ff0000' : '#ff6600';
+            window.highlightMarker = L.circleMarker([lat, lng], {
+                radius: 14,
+                color: highlightColor,
+                weight: 4,
+                fillColor: highlightColor,
+                fillOpacity: 0.4,
+                className: 'asset-highlight-pulse'
+            }).addTo(map);
+            
+            // Add pulsing animation via CSS
+            if (!document.querySelector('#hotspot-pulse-style')) {
+                const style = document.createElement('style');
+                style.id = 'hotspot-pulse-style';
+                style.textContent = `
+                    .asset-highlight-pulse {
+                        animation: pulse 1.5s ease-in-out infinite;
+                    }
+                    @keyframes pulse {
+                        0% { opacity: 0.7; transform: scale(1); }
+                        50% { opacity: 1; transform: scale(1.3); }
+                        100% { opacity: 0.7; transform: scale(1); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            setTimeout(() => {
+                if (window.highlightMarker) {
+                    map.removeLayer(window.highlightMarker);
+                    window.highlightMarker = null;
+                }
+            }, 5000);
+        }
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // INIT MAP
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -649,6 +763,9 @@ function initMap(centerLat = -18.9735, centerLng = 32.6705, zoom = 13) {
     document.addEventListener('filtersChanged', e => {
         applyFilterHighlight(e.detail);
     });
+    
+    // ── Add hotspot event listeners ──────────────────────────────────────────
+    addHotspotEventListeners();
 
     setTimeout(() => addDropdownTileSelector(), 200);
     setTimeout(() => refreshAllLayers(), 800);
@@ -717,6 +834,7 @@ function clearCadastre() {
 }
 
 function getMap() { return map; }
+function getCurrentManholesData() { return currentManholesData; }
 
 // Resolve complaint helper (called from popup)
 window.markComplaintResolved = async id => {
@@ -732,6 +850,7 @@ window.zoomToStand = (lat, lng) => map?.setView([lat, lng], 18);
 export default {
     init:                        initMap,
     getMap,
+    getCurrentManholesData,
     switchBaseMap,
     refreshAllLayers,
     loadManholesFromGeoJSON,
@@ -747,4 +866,5 @@ export default {
     clearHeatmap,
     fitToBounds,
     applyFilterHighlight,
+    zoomToLocation,
 };

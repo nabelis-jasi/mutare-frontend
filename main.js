@@ -68,8 +68,6 @@ function renderComponents() {
             <div class="toolbar">
                 <div id="menu-container" class="toolbar-menu-container"></div>
                 <button id="fitBoundsBtn" title="Fit map to all assets">🎯 FIT ALL</button>
-                <button id="heatmapBtn" title="Show heatmap of blockages">🔥 SHOW HEATMAP</button>
-                <button id="clearHeatmapBtn" title="Clear heatmap">❌ CLEAR HEATMAP</button>
                 <button id="exportGeoJSONBtn" title="Export current view as GeoJSON">📎 EXPORT GEOJSON</button>
                 <button id="printMapBtn" title="Print map">🖨️ PRINT MAP</button>
             </div>
@@ -119,19 +117,45 @@ function renderComponents() {
 
 async function fetchAllManholes() {
     try {
-        const res = await fetch(`${API_BASE_URL}/manholes_all`);
+        console.log('📡 Fetching manholes from:', `${API_BASE_URL}/manholes/geojson?limit=20000`);
+        
+        const res = await fetch(`${API_BASE_URL}/manholes/geojson?limit=20000`);
 
-        if (!res.ok) throw new Error('Failed to fetch manholes');
+        if (!res.ok) {
+            console.error('Failed to fetch manholes:', res.status);
+            return [];
+        }
 
         const geojson = await res.json();
+        console.log('📊 Raw manholes GeoJSON:', {
+            features: geojson.features?.length || 0,
+            sample: geojson.features?.[0]
+        });
 
-        return geojson.features.map(f => ({
-            ...f.properties,
-            lat: f.geometry.coordinates[1],
-            lng: f.geometry.coordinates[0],
-            id: f.properties.manhole_id || f.properties.id,
-            type: 'manhole'
-        }));
+        if (!geojson.features || geojson.features.length === 0) {
+            console.warn('No manhole features found');
+            return [];
+        }
+
+        const manholes = geojson.features.map(f => {
+            const coords = f.geometry?.coordinates || [];
+            return {
+                id: f.properties?.manhole_id || f.properties?.id || `mh_${Math.random()}`,
+                manhole_id: f.properties?.manhole_id || f.properties?.id,
+                lat: coords[1] || 0,
+                lng: coords[0] || 0,
+                suburb: f.properties?.suburb || f.properties?.suburb_nam || 'Unknown',
+                suburb_nam: f.properties?.suburb_nam || f.properties?.suburb || 'Unknown',
+                status: f.properties?.status || f.properties?.bloc_stat || 'good',
+                bloc_stat: f.properties?.bloc_stat || f.properties?.status || 'good',
+                depth: f.properties?.depth || f.properties?.mh_depth,
+                inspector: f.properties?.inspector,
+                inspection_date: f.properties?.inspection_date
+            };
+        }).filter(m => m.lat && m.lng && m.lat !== 0 && m.lng !== 0);
+
+        console.log(`✅ Fetched ${manholes.length} valid manholes`);
+        return manholes;
 
     } catch (err) {
         console.error('fetchAllManholes error:', err);
@@ -141,7 +165,7 @@ async function fetchAllManholes() {
 
 async function fetchAllPipelines() {
     try {
-        const res = await fetch(`${API_BASE_URL}/pipelines_all`);
+        const res = await fetch(`${API_BASE_URL}/pipelines/geojson?limit=20000`);
 
         if (!res.ok) throw new Error('Failed to fetch pipelines');
 
@@ -151,8 +175,8 @@ async function fetchAllPipelines() {
             ...f.properties,
             geometry: f.geometry,
             type: 'pipeline',
-            lat: f.geometry.coordinates[0]?.[1] || f.geometry.coordinates[1],
-            lng: f.geometry.coordinates[0]?.[0] || f.geometry.coordinates[0]
+            lat: f.geometry?.coordinates?.[0]?.[1] || f.geometry?.coordinates?.[1] || 0,
+            lng: f.geometry?.coordinates?.[0]?.[0] || f.geometry?.coordinates?.[0] || 0
         }));
 
     } catch (err) {
@@ -163,7 +187,7 @@ async function fetchAllPipelines() {
 
 async function fetchAllSuburbs() {
     try {
-        const res = await fetch(`${API_BASE_URL}/suburbs_all`);
+        const res = await fetch(`${API_BASE_URL}/suburbs/geojson`);
 
         if (!res.ok) throw new Error('Failed to fetch suburbs');
 
@@ -191,8 +215,8 @@ async function fetchAllJobs() {
 
         return geojson.features.map(f => ({
             ...f.properties,
-            lat: f.geometry.coordinates[1],
-            lng: f.geometry.coordinates[0],
+            lat: f.geometry?.coordinates?.[1] || 0,
+            lng: f.geometry?.coordinates?.[0] || 0,
             type: 'job'
         }));
 
@@ -204,7 +228,7 @@ async function fetchAllJobs() {
 
 async function fetchAllComplaints() {
     try {
-        const res = await fetch(`${API_BASE_URL}/complaints_all`);
+        const res = await fetch(`${API_BASE_URL}/complaints/geojson`);
 
         if (!res.ok) return [];
 
@@ -212,8 +236,8 @@ async function fetchAllComplaints() {
 
         return geojson.features.map(f => ({
             ...f.properties,
-            lat: f.geometry.coordinates[1],
-            lng: f.geometry.coordinates[0],
+            lat: f.geometry?.coordinates?.[1] || 0,
+            lng: f.geometry?.coordinates?.[0] || 0,
             type: 'complaint'
         }));
 
@@ -277,10 +301,19 @@ async function initComponents() {
         console.log('Initializing hotspots...');
         Hotspots.init();
 
-        const manholes = await fetchAllManholes();
+        window.hotspotsComponent = Hotspots;
+        console.log('✅ Hotspots component registered globally');
 
-        if (Hotspots.update) {
-            Hotspots.update(manholes);
+        const manholes = await fetchAllManholes();
+        console.log(`📊 Fetched ${manholes.length} manholes for hotspots`);
+
+        if (manholes.length > 0) {
+            if (Hotspots.update) {
+                Hotspots.update(manholes);
+                console.log(`🔥 Hotspots updated with ${manholes.length} manholes`);
+            }
+        } else {
+            console.warn('⚠️ No manhole data available for hotspots');
         }
     }
 
@@ -305,29 +338,6 @@ function setupEventListeners() {
         fitBoundsBtn.addEventListener('click', () => {
             if (MapView && MapView.fitToBounds) {
                 MapView.fitToBounds();
-            }
-        });
-    }
-
-    const heatmapBtn = document.getElementById('heatmapBtn');
-
-    if (heatmapBtn) {
-        heatmapBtn.addEventListener('click', async () => {
-
-            const manholes = await fetchAllManholes();
-
-            if (MapView && MapView.showHeatmapFromManholes) {
-                MapView.showHeatmapFromManholes(manholes);
-            }
-        });
-    }
-
-    const clearHeatmapBtn = document.getElementById('clearHeatmapBtn');
-
-    if (clearHeatmapBtn) {
-        clearHeatmapBtn.addEventListener('click', () => {
-            if (MapView && MapView.clearHeatmap) {
-                MapView.clearHeatmap();
             }
         });
     }
@@ -368,6 +378,7 @@ function setupEventListeners() {
 
         if (Hotspots && Hotspots.update) {
             Hotspots.update(manholes);
+            console.log(`🔥 Hotspots updated after filter with ${manholes.length} manholes`);
         }
 
         if (Statistics && Statistics.update) {
@@ -386,6 +397,7 @@ function setupEventListeners() {
 
             if (map && map.setView) {
                 map.setView([lat, lng], zoom || 18);
+                console.log(`📍 Zoomed to location: ${lat}, ${lng}`);
             }
         }
     });
@@ -416,6 +428,20 @@ function setupEventListeners() {
             console.warn('MapView.showComplaintsWithBuffers not available');
         }
     });
+    
+    // ASSET HIGHLIGHT from hotspots
+    document.addEventListener('highlightAsset', (event) => {
+        console.log('🔴 Highlight asset event received:', event.detail);
+        
+        const { lat, lng, isCritical, assetId } = event.detail;
+        
+        if (MapView && MapView.getMap) {
+            const map = MapView.getMap();
+            if (map && lat && lng) {
+                map.setView([lat, lng], 18);
+            }
+        }
+    });
 }
 
 // ============================================
@@ -439,6 +465,12 @@ async function init() {
     await initComponents();
 
     setupEventListeners();
+
+    setTimeout(() => {
+        document.dispatchEvent(new CustomEvent('dataRefreshed', {
+            detail: { timestamp: new Date().toISOString() }
+        }));
+    }, 2000);
 
     console.log('Dashboard ready! Backend API:', API_BASE_URL);
 }
