@@ -11,9 +11,68 @@
 //   • loadDynamicFilterOptions() drives all dropdowns from real DB data.
 //   • Cascading respects parent-child relationships and never wipes a
 //     selection the user already made.
+//   • HARDCODED AREA DATA is injected into dropdowns for predefined zones/suburbs
 // ─────────────────────────────────────────────────────────────────────────────
 
 const API_BASE_URL = 'http://localhost:5000/api';
+
+// ─── HARDCODED AREA DATA ────────────────────────────────────────────────────
+// Format: id | zone_code | area_name | township | ward | min_depth | max_depth | op_zone
+// This data will be used to populate dropdowns and map area selection
+const HARDCODED_AREAS = [
+    { id: 25, zone_code: 7, area_name: "AVENUES", township: "UTALI", ward: "", min_depth: 11.0, max_depth: null, op_zone: "TOWN" },
+    { id: 33, zone_code: 18, area_name: "BEIRA CORRIDOR", township: "UTALI", ward: "", min_depth: 11.0, max_depth: null, op_zone: "TOWN" },
+    { id: 18, zone_code: 38, area_name: "BERNWIN", township: "CHIKANGA", ward: "", min_depth: 16.0, max_depth: null, op_zone: "CHIKANGA" },
+    { id: 1, zone_code: 4, area_name: "BORDERVALE 1", township: "UTALI", ward: "", min_depth: 11.0, max_depth: null, op_zone: "TOWN" },
+    { id: 6, zone_code: 17, area_name: "BORDERVALE 2", township: "UTALI", ward: "", min_depth: 11.0, max_depth: null, op_zone: "TOWN" },
+    { id: 26, zone_code: 8, area_name: "CBD", township: "UTALI", ward: "", min_depth: 10.0, max_depth: null, op_zone: "TOWN" },
+    { id: 45, zone_code: 42, area_name: "CHIKANGA", township: "CHIKANGA", ward: "", min_depth: 16.0, max_depth: null, op_zone: "CHIKANGA" },
+    { id: 44, zone_code: 41, area_name: "CHIKANGA", township: "CHIKANGA", ward: "DREAMHOUSE", min_depth: 8.0, max_depth: 13.0, op_zone: "CHIKANGA" },
+    { id: 19, zone_code: 40, area_name: "CHIKANGA", township: "CHIKANGA", ward: "DATVEST", min_depth: null, max_depth: 13.0, op_zone: "CHIKANGA" },
+    { id: 5, zone_code: 16, area_name: "CHIPANDA", township: "UTALI", ward: "", min_depth: 10.0, max_depth: null, op_zone: "TOWN" },
+    { id: 14, zone_code: 30, area_name: "DANGAMVURA", township: "DANGAMVURA", ward: "", min_depth: 18.0, max_depth: null, op_zone: "DANGAMVURA" },
+    { id: 20, zone_code: 43, area_name: "DANGAMVURA", township: "DANGAMVURA", ward: "AREA13", min_depth: null, max_depth: 9.0, op_zone: "DANGAMVURA" },
+    { id: 46, zone_code: 44, area_name: "DANGAMVURA", township: "DANGAMVURA", ward: "", min_depth: 8.0, max_depth: null, op_zone: "DANGAMVURA" },
+    { id: 24, zone_code: 6, area_name: "DARLINGTON", township: "UTALI", ward: "", min_depth: 11.0, max_depth: null, op_zone: "TOWN" },
+    { id: 21, zone_code: 39, area_name: "DARLINGTON EXT", township: "UTALI", ward: "", min_depth: 11.0, max_depth: null, op_zone: "TOWN" },
+    { id: 12, zone_code: 28, area_name: "DORA", township: "DORA", ward: "33", min_depth: null, max_depth: 33.0, op_zone: "DANGAMVURA" },
+    { id: 31, zone_code: 45, area_name: "DORA", township: "DORA", ward: "REMAINDER", min_depth: null, max_depth: 33.0, op_zone: "DANGAMVURA" },
+    { id: 30, zone_code: 15, area_name: "FAIRBRIDGE", township: "UTALI", ward: "", min_depth: 12.0, max_depth: null, op_zone: "TOWN" },
+    { id: 41, zone_code: 34, area_name: "FERNHILL", township: "FERNHILL", ward: "", min_depth: 19.0, max_depth: null, op_zone: "DANGAMVURA" },
+    { id: 39, zone_code: 32, area_name: "FERNVALLEY SOUTH", township: "FERNVALLEY", ward: "", min_depth: 19.0, max_depth: null, op_zone: "DANGAMVURA" },
+    { id: 32, zone_code: 46, area_name: "FERNVALLEY NORTH", township: "FERNVALLEY", ward: "", min_depth: 19.0, max_depth: null, op_zone: "DANGAMVURA" },
+    { id: 4, zone_code: 14, area_name: "FLORIDA", township: "UTALI", ward: "", min_depth: 12.0, max_depth: null, op_zone: "TOWN" },
+    { id: 36, zone_code: 21, area_name: "GARIKAYI", township: "UTALI", ward: "", min_depth: null, max_depth: null, op_zone: "CHIKANGA" },
+    { id: 38, zone_code: 31, area_name: "GIMBOKI", township: "DANGAMVURA", ward: "", min_depth: 15.0, max_depth: null, op_zone: "DANGAMVURA" },
+    { id: 23, zone_code: 5, area_name: "GREENSIDE", township: "UTALI", ward: "", min_depth: 11.0, max_depth: null, op_zone: "TOWN" },
+    { id: 35, zone_code: 20, area_name: "HOBHOUSE", township: "HOBHOUSE", ward: "", min_depth: 17.0, max_depth: null, op_zone: "CHIKANGA" },
+    { id: 28, zone_code: 10, area_name: "HOSPITAL HILL", township: "UTALI", ward: "", min_depth: 12.0, max_depth: null, op_zone: "TOWN" },
+    { id: 42, zone_code: 35, area_name: "KENTUCKY", township: "KENTUCKY", ward: "", min_depth: 7.0, max_depth: null, op_zone: "DANGAMVURA" },
+    { id: 40, zone_code: 33, area_name: "LINK ROAD", township: "UTALI", ward: "", min_depth: 19.0, max_depth: null, op_zone: "DANGAMVURA" },
+    { id: 22, zone_code: 3, area_name: "MORNINGSIDE", township: "UTALI", ward: "", min_depth: 11.0, max_depth: null, op_zone: "TOWN" },
+    { id: 34, zone_code: 19, area_name: "MUNENI", township: "UTALI", ward: "", min_depth: 10.0, max_depth: null, op_zone: "SAKUBVA" },
+    { id: 16, zone_code: 1, area_name: "MURAMBI", township: "UTALI", ward: "", min_depth: 12.0, max_depth: null, op_zone: "TOWN" },
+    { id: 9, zone_code: 24, area_name: "NATVEST", township: "UTALI", ward: "", min_depth: 3.0, max_depth: null, op_zone: "SAKUBVA" },
+    { id: 7, zone_code: 22, area_name: "NATVIEW", township: "UTALI", ward: "", min_depth: 17.0, max_depth: null, op_zone: "CHIKANGA" },
+    { id: 43, zone_code: 36, area_name: "NYAKAMETE", township: "UTALI", ward: "", min_depth: 10.0, max_depth: null, op_zone: "SAKUBVA" },
+    { id: 27, zone_code: 9, area_name: "PALMERSTONE", township: "UTALI", ward: "", min_depth: 11.0, max_depth: null, op_zone: "TOWN" },
+    { id: 10, zone_code: 25, area_name: "RAHEEN", township: "HOBHOUSE", ward: "", min_depth: 17.0, max_depth: null, op_zone: "CHIKANGA" },
+    { id: 37, zone_code: 26, area_name: "SAKUBVA", township: "SAKUBVA", ward: "", min_depth: 1.0, max_depth: null, op_zone: "SAKUBVA" },
+    { id: 8, zone_code: 23, area_name: "ST JOSEPH", township: "UTALI", ward: "", min_depth: 17.0, max_depth: null, op_zone: "CHIKANGA" },
+    { id: 17, zone_code: 2, area_name: "TIGERS KLOOF", township: "UTALI", ward: "", min_depth: 12.0, max_depth: null, op_zone: "TOWN" },
+    { id: 13, zone_code: 29, area_name: "TRIANG", township: "DANGAMVURA", ward: "", min_depth: 18.0, max_depth: null, op_zone: "DANGAMVURA" },
+    { id: 29, zone_code: 11, area_name: "UTOPIA", township: "UTALI", ward: "", min_depth: 12.0, max_depth: null, op_zone: "TOWN" },
+    { id: 11, zone_code: 27, area_name: "WEIRMOUTH", township: "WEIRMOUTH", ward: "", min_depth: 13.0, max_depth: null, op_zone: "CHIKANGA" },
+    { id: 3, zone_code: 13, area_name: "WESTLEA", township: "UTALI", ward: "", min_depth: 12.0, max_depth: null, op_zone: "TOWN" },
+    { id: 2, zone_code: 12, area_name: "YEOVIL", township: "UTALI", ward: "", min_depth: 12.0, max_depth: null, op_zone: "TOWN" },
+    { id: 15, zone_code: 37, area_name: "ZIMTA", township: "CHIKANGA", ward: "", min_depth: 16.0, max_depth: null, op_zone: "CHIKANGA" }
+];
+
+// Extract unique values from hardcoded areas for dropdowns
+const HARDCODED_OP_ZONES = [...new Set(HARDCODED_AREAS.map(area => area.op_zone))].filter(Boolean).sort();
+const HARDCODED_TOWNSHIPS = [...new Set(HARDCODED_AREAS.map(area => area.township))].filter(Boolean).sort();
+const HARDCODED_WARDS = [...new Set(HARDCODED_AREAS.map(area => area.ward).filter(w => w && w !== ""))].sort();
+const HARDCODED_SUBURBS = [...new Set(HARDCODED_AREAS.map(area => area.area_name))].filter(Boolean).sort();
 
 // ─── State ──────────────────────────────────────────────────────────────────
 
@@ -35,6 +94,8 @@ let currentFilters = {
     date_from:          '',
     date_to:            '',
     search_text:        '',
+    // Hardcoded area selection
+    hardcoded_area:     'all',
 };
 
 let filterOptions = {
@@ -50,6 +111,12 @@ let filterOptions = {
     pipe_statuses:        [],
     manhole_depth_range:  { min: null, max: null },
     pipe_length_range:    { min: null, max: null },
+    // Hardcoded area options
+    hardcoded_areas:      HARDCODED_AREAS,
+    hardcoded_op_zones:   HARDCODED_OP_ZONES,
+    hardcoded_townships:  HARDCODED_TOWNSHIPS,
+    hardcoded_wards:      HARDCODED_WARDS,
+    hardcoded_suburbs:    HARDCODED_SUBURBS,
 };
 
 let tempFilters   = { ...currentFilters };
@@ -64,6 +131,7 @@ let $opZone, $township, $ward, $suburb, $zone;
 let $manholeStatus, $inspector, $depthMin, $depthMax;
 let $pipeMaterial, $pipeSize, $pipeStatus, $lengthMin, $lengthMax;
 let $dateFrom, $dateTo, $search;
+let $hardcodedArea; // New dropdown for hardcoded area selection
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UTIL
@@ -99,6 +167,12 @@ function buildParams(filters) {
     for (const [key, val] of Object.entries(map)) {
         if (val && val !== 'all') p.append(key, val);
     }
+    
+    // Add hardcoded area filter if selected
+    if (filters.hardcoded_area && filters.hardcoded_area !== 'all') {
+        p.append('hardcoded_area', filters.hardcoded_area);
+    }
+    
     return p;
 }
 
@@ -115,11 +189,12 @@ function countActiveFilters(f) {
     if (f.length_max)         n++;
     if (f.date_from)          n++;
     if (f.date_to)            n++;
+    if (f.hardcoded_area && f.hardcoded_area !== 'all') n++;
     return n;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LOAD DYNAMIC OPTIONS FROM BACKEND
+// LOAD DYNAMIC OPTIONS FROM BACKEND + HARDCODED DATA
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function loadDynamicFilterOptions() {
@@ -137,11 +212,17 @@ async function loadDynamicFilterOptions() {
             suburbs_count: data.suburbs?.length || 0
         });
 
+        // Merge backend data with hardcoded data
+        const allOpZones = [...new Set([...(data.op_zones || []), ...HARDCODED_OP_ZONES])].sort();
+        const allTownships = [...new Set([...(data.townships || []), ...HARDCODED_TOWNSHIPS])].sort();
+        const allWards = [...new Set([...(data.wards || []), ...HARDCODED_WARDS])].sort();
+        const allSuburbs = [...new Set([...(data.suburbs || []), ...HARDCODED_SUBURBS])].sort();
+
         filterOptions = {
-            op_zones:            data.op_zones            || [],
-            townships:           data.townships           || [],
-            wards:               data.wards               || [],
-            suburbs:             data.suburbs             || [],
+            op_zones:            allOpZones,
+            townships:           allTownships,
+            wards:               allWards,
+            suburbs:             allSuburbs,
             zones:               data.zones               || [],
             inspectors:          data.inspectors          || [],
             manhole_statuses:    data.manhole_statuses    || [],
@@ -150,6 +231,12 @@ async function loadDynamicFilterOptions() {
             pipe_statuses:       data.pipe_statuses       || [],
             manhole_depth_range: data.manhole_depth_range || { min: null, max: null },
             pipe_length_range:   data.pipe_length_range   || { min: null, max: null },
+            // Hardcoded data
+            hardcoded_areas:      HARDCODED_AREAS,
+            hardcoded_op_zones:   HARDCODED_OP_ZONES,
+            hardcoded_townships:  HARDCODED_TOWNSHIPS,
+            hardcoded_wards:      HARDCODED_WARDS,
+            hardcoded_suburbs:    HARDCODED_SUBURBS,
         };
 
         // Apply sensible fallbacks for empty lists
@@ -159,16 +246,23 @@ async function loadDynamicFilterOptions() {
         if (!filterOptions.pipe_sizes.length)       filterOptions.pipe_sizes       = [100,150,200,250,300,375,450,525,600];
 
         optionsLoaded = true;
-        console.log('✅ Filter options loaded:', {
+        console.log('✅ Filter options loaded (including hardcoded areas):', {
             op_zones:  filterOptions.op_zones,
             townships: filterOptions.townships.slice(0, 5),
             wards:     filterOptions.wards.slice(0, 5),
             suburbs:   filterOptions.suburbs.slice(0, 5),
+            hardcoded_areas_count: filterOptions.hardcoded_areas.length,
         });
         return true;
     } catch (err) {
         console.error('Filter options load failed:', err);
-        optionsLoaded = false;
+        // Even if backend fails, we still have hardcoded data
+        filterOptions.op_zones = HARDCODED_OP_ZONES;
+        filterOptions.townships = HARDCODED_TOWNSHIPS;
+        filterOptions.wards = HARDCODED_WARDS;
+        filterOptions.suburbs = HARDCODED_SUBURBS;
+        filterOptions.hardcoded_areas = HARDCODED_AREAS;
+        optionsLoaded = true;
         return false;
     }
 }
@@ -199,6 +293,26 @@ function populateSelect(el, items, placeholder, labelFn) {
     }
 }
 
+function populateHardcodedAreaSelect() {
+    if (!$hardcodedArea) return;
+    const prev = $hardcodedArea.value;
+    
+    const areas = HARDCODED_AREAS;
+    console.log(`📋 Populating hardcoded area dropdown with ${areas.length} areas`);
+    
+    if (!areas.length) {
+        $hardcodedArea.innerHTML = `<option value="all">SELECT PREDEFINED AREA</option>`;
+        return;
+    }
+    
+    $hardcodedArea.innerHTML = `<option value="all">📌 SELECT PREDEFINED AREA</option>` +
+        areas.map(area => `<option value="${esc(area.area_name)}" data-area='${JSON.stringify(area)}'>📍 ${esc(area.area_name)} - ${esc(area.township)} (Zone ${area.zone_code})</option>`).join('');
+    
+    if (prev && prev !== 'all' && areas.some(a => a.area_name === prev)) {
+        $hardcodedArea.value = prev;
+    }
+}
+
 function updateAllDropdowns() {
     console.log('🎨 Updating all dropdowns with loaded options...');
     
@@ -212,6 +326,9 @@ function updateAllDropdowns() {
     populateSelect($pipeMaterial, filterOptions.pipe_materials,   'ALL MATERIALS');
     populateSelect($pipeSize,    filterOptions.pipe_sizes,       'ALL SIZES',      s => `${s} mm`);
     populateSelect($inspector,   filterOptions.inspectors,       'ALL INSPECTORS');
+    
+    // Populate hardcoded area dropdown
+    populateHardcodedAreaSelect();
 
     // Range placeholder hints
     if ($depthMin && filterOptions.manhole_depth_range.min != null)
@@ -222,6 +339,76 @@ function updateAllDropdowns() {
         $lengthMin.placeholder = `Min (${Math.round(filterOptions.pipe_length_range.min)} m)`;
     if ($lengthMax && filterOptions.pipe_length_range.max != null)
         $lengthMax.placeholder = `Max (${Math.round(filterOptions.pipe_length_range.max)} m)`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HARDCODED AREA SELECTION HANDLER - SELECTS AREA ON MAPVIEW
+// ─────────────────────────────────────────────────────────────────────────────
+
+function onHardcodedAreaChange() {
+    if (!$hardcodedArea) return;
+    const selectedAreaName = $hardcodedArea.value;
+    
+    if (selectedAreaName === 'all') {
+        console.log('📌 Hardcoded area cleared');
+        // Clear the area selection from currentFilters
+        currentFilters.hardcoded_area = 'all';
+        tempFilters.hardcoded_area = 'all';
+        return;
+    }
+    
+    const selectedArea = HARDCODED_AREAS.find(area => area.area_name === selectedAreaName);
+    if (!selectedArea) return;
+    
+    console.log('📍 Hardcoded area selected:', selectedArea);
+    
+    // Update filters with the selected area's data
+    if (selectedArea.op_zone) {
+        currentFilters.op_zone = selectedArea.op_zone;
+        tempFilters.op_zone = selectedArea.op_zone;
+        if ($opZone) $opZone.value = selectedArea.op_zone;
+    }
+    
+    if (selectedArea.township) {
+        currentFilters.township = selectedArea.township;
+        tempFilters.township = selectedArea.township;
+        if ($township) $township.value = selectedArea.township;
+    }
+    
+    if (selectedArea.ward && selectedArea.ward !== "") {
+        currentFilters.ward = selectedArea.ward;
+        tempFilters.ward = selectedArea.ward;
+        if ($ward) $ward.value = selectedArea.ward;
+    }
+    
+    if (selectedArea.area_name) {
+        currentFilters.suburb_nam = selectedArea.area_name;
+        tempFilters.suburb_nam = selectedArea.area_name;
+        if ($suburb) $suburb.value = selectedArea.area_name;
+    }
+    
+    // Store the hardcoded area selection
+    currentFilters.hardcoded_area = selectedArea.area_name;
+    tempFilters.hardcoded_area = selectedArea.area_name;
+    
+    // Trigger cascading updates to refresh dependent dropdowns
+    updateCascadingOptions().then(() => {
+        // Dispatch map selection event so the mapview can zoom to/focus on the selected area
+        document.dispatchEvent(new CustomEvent('hardcodedAreaSelected', {
+            detail: {
+                area: selectedArea,
+                filters: {
+                    op_zone: selectedArea.op_zone,
+                    township: selectedArea.township,
+                    ward: selectedArea.ward,
+                    suburb: selectedArea.area_name
+                }
+            }
+        }));
+        
+        // Optionally auto-apply filters
+        triggerFilterChange();
+    });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -248,6 +435,9 @@ async function updateCascadingOptions() {
         const res = await fetch(`${API_BASE_URL}/filters/cascade?${p}`);
         if (!res.ok) {
             console.warn('Cascade API returned:', res.status);
+            // Fallback to hardcoded filtered data
+            const filtered = getHardcodedAreasFiltered(opZone, township, ward);
+            updateDropdownsFromHardcoded(filtered);
             return;
         }
         const data = await res.json();
@@ -294,9 +484,67 @@ async function updateCascadingOptions() {
         }
 
     } catch (err) {
-        console.warn('Cascade update failed:', err);
+        console.warn('Cascade update failed, using hardcoded fallback:', err);
+        const filtered = getHardcodedAreasFiltered(opZone, township, ward);
+        updateDropdownsFromHardcoded(filtered);
     } finally {
         isCascading = false;
+    }
+}
+
+// Helper function to filter hardcoded areas based on selection
+function getHardcodedAreasFiltered(opZone, township, ward) {
+    let filtered = [...HARDCODED_AREAS];
+    
+    if (opZone && opZone !== 'all') {
+        filtered = filtered.filter(area => area.op_zone === opZone);
+    }
+    if (township && township !== 'all') {
+        filtered = filtered.filter(area => area.township === township);
+    }
+    if (ward && ward !== 'all') {
+        filtered = filtered.filter(area => area.ward === ward);
+    }
+    
+    return {
+        townships: [...new Set(filtered.map(a => a.township).filter(Boolean))],
+        wards: [...new Set(filtered.map(a => a.ward).filter(w => w && w !== ""))],
+        suburbs: [...new Set(filtered.map(a => a.area_name).filter(Boolean))],
+        zones: [...new Set(filtered.map(a => a.zone_code).filter(Boolean))]
+    };
+}
+
+function updateDropdownsFromHardcoded(filtered) {
+    if (filtered.townships.length > 0) {
+        const currentTownship = $township?.value;
+        populateSelect($township, filtered.townships, 'ALL TOWNSHIPS');
+        if (currentTownship && currentTownship !== 'all' && filtered.townships.includes(currentTownship)) {
+            $township.value = currentTownship;
+        }
+    }
+    
+    if (filtered.wards.length > 0) {
+        const currentWard = $ward?.value;
+        populateSelect($ward, filtered.wards, 'ALL WARDS', w => `Ward ${w}`);
+        if (currentWard && currentWard !== 'all' && filtered.wards.includes(currentWard)) {
+            $ward.value = currentWard;
+        }
+    }
+    
+    if (filtered.suburbs.length > 0) {
+        const currentSuburb = $suburb?.value;
+        populateSelect($suburb, filtered.suburbs, 'ALL SUBURBS');
+        if (currentSuburb && currentSuburb !== 'all' && filtered.suburbs.includes(currentSuburb)) {
+            $suburb.value = currentSuburb;
+        }
+    }
+    
+    if (filtered.zones.length > 0) {
+        const currentZone = $zone?.value;
+        populateSelect($zone, filtered.zones, 'ALL ZONES', z => `Zone ${z}`);
+        if (currentZone && currentZone !== 'all' && filtered.zones.includes(Number(currentZone))) {
+            $zone.value = currentZone;
+        }
     }
 }
 
@@ -318,6 +566,13 @@ async function onParentFilterChange(changedField) {
         if ($suburb && $suburb.value !== 'all') $suburb.value = 'all';
     } else if (changedField === 'ward') {
         if ($suburb && $suburb.value !== 'all') $suburb.value = 'all';
+    }
+    
+    // Clear hardcoded area selection when manual filters change
+    if ($hardcodedArea && $hardcodedArea.value !== 'all') {
+        $hardcodedArea.value = 'all';
+        currentFilters.hardcoded_area = 'all';
+        tempFilters.hardcoded_area = 'all';
     }
 
     await updateCascadingOptions();
@@ -523,6 +778,7 @@ function openFilterModal() {
     if ($dateFrom)      $dateFrom.value      = tempFilters.date_from;
     if ($dateTo)        $dateTo.value        = tempFilters.date_to;
     if ($search)        $search.value        = tempFilters.search_text;
+    if ($hardcodedArea) $hardcodedArea.value = tempFilters.hardcoded_area || 'all';
 
     const modal = document.getElementById('filterModal');
     if (modal) modal.style.display = 'flex';
@@ -553,6 +809,7 @@ function readTempFiltersFromDOM() {
     if ($dateFrom)      tempFilters.date_from           = $dateFrom.value;
     if ($dateTo)        tempFilters.date_to             = $dateTo.value;
     if ($search)        tempFilters.search_text         = $search.value.trim();
+    if ($hardcodedArea) tempFilters.hardcoded_area      = $hardcodedArea.value;
 }
 
 async function applyFilters() {
@@ -568,7 +825,7 @@ async function resetFilters() {
         manhole_status: 'all', manhole_depth_min: '', manhole_depth_max: '',
         pipe_material: 'all', pipe_size: 'all', pipe_status: 'all',
         length_min: '', length_max: '', inspector: 'all',
-        date_from: '', date_to: '', search_text: '',
+        date_from: '', date_to: '', search_text: '', hardcoded_area: 'all',
     };
     tempFilters    = { ...blank };
     currentFilters = { ...blank };
@@ -590,6 +847,7 @@ async function resetFilters() {
     if ($dateFrom)      $dateFrom.value      = '';
     if ($dateTo)        $dateTo.value        = '';
     if ($search)        $search.value        = '';
+    if ($hardcodedArea) $hardcodedArea.value = 'all';
 
     updateFilterButtonText();
     await updateCascadingOptions();
@@ -606,6 +864,7 @@ function exportToJSON() {
         data:    currentData,
         exported_at:    new Date().toISOString(),
         total_features: currentData.manholes.length + currentData.pipelines.length,
+        hardcoded_areas_used: HARDCODED_AREAS,
     }, null, 2)], { type: 'application/json' });
     _downloadBlob(blob, `sewer_export_${_ts()}.json`);
 }
@@ -667,6 +926,17 @@ function renderModal() {
         </div>
       </section>
 
+      <!-- HARDCODED AREA SELECTION - Predefined areas that select on map -->
+      <section style="margin-bottom:18px;background:#1a2e1a;border:1px solid #2e7d32;border-radius:6px;padding:10px">
+        <div style="font-size:11px;font-weight:bold;color:#ffd54f;letter-spacing:.06em;margin-bottom:8px">📌 PREDEFINED AREAS (Quick Select)</div>
+        <div style="display:grid;grid-template-columns:1fr;gap:10px">
+          ${_fieldGroup('Select Area to Focus Map', 'hardcodedAreaSelect', 'select')}
+        </div>
+        <p style="font-size:9px;color:#ffb74d;margin:8px 0 0 0">
+          🗺️ Select a predefined area to automatically set location filters and focus the map view on that area.
+        </p>
+      </section>
+
       <!-- LOCATION - HIERARCHICAL -->
       <section style="margin-bottom:18px">
         <div style="font-size:11px;font-weight:bold;color:#7cb342;letter-spacing:.06em;margin-bottom:8px">📍 LOCATION (Hierarchical)</div>
@@ -724,6 +994,7 @@ function renderModal() {
       <p style="font-size:10px;color:#558b2f;margin:10px 0 0">
         💡 Dropdowns cascade hierarchically: Select Operational Zone → then Township → then Ward → then Suburb.
         🟡 Filtered results will highlight in NEON YELLOW on the map.
+        📌 Predefined areas let you quickly focus on specific zones like AVENUES, CBD, CHIKANGA, etc.
       </p>
     </div>
 
@@ -762,6 +1033,11 @@ function attachModalEvents() {
     document.getElementById('exportCSVBtn')     ?.addEventListener('click', exportToCSV);
     document.getElementById('exportPDFBtn')     ?.addEventListener('click', exportToPDF);
     document.getElementById('exportSHPBtn')     ?.addEventListener('click', exportToSHP);
+    
+    // Hardcoded area change event
+    if ($hardcodedArea) {
+        $hardcodedArea.addEventListener('change', onHardcodedAreaChange);
+    }
 
     if ($opZone) {
         $opZone.addEventListener('change', async () => {
@@ -802,6 +1078,7 @@ function assignDOMRefs() {
     $dateFrom      = document.getElementById('dateFromInput');
     $dateTo        = document.getElementById('dateToInput');
     $search        = document.getElementById('searchTextInput');
+    $hardcodedArea = document.getElementById('hardcodedAreaSelect');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -810,6 +1087,7 @@ function assignDOMRefs() {
 
 async function initFilters() {
     console.log('🚀 Initialising dynamic filters (Hierarchical: op_zone → township → ward → suburb) …');
+    console.log('📌 Hardcoded areas loaded:', HARDCODED_AREAS.length);
 
     if (!document.getElementById('filterModal')) {
         document.body.insertAdjacentHTML('beforeend', renderModal());
@@ -827,7 +1105,7 @@ async function initFilters() {
 
     await triggerFilterChange();
 
-    console.log('✅ Filters ready with hierarchical cascading. Filtered results will highlight in NEON YELLOW.');
+    console.log('✅ Filters ready with hierarchical cascading and hardcoded area selection. Filtered results will highlight in NEON YELLOW.');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -849,4 +1127,12 @@ export default {
     openModal:       openFilterModal,
     closeModal:      closeFilterModal,
     resetFilters,
+    // Expose hardcoded areas for external use (map focusing)
+    getHardcodedAreas: () => [...HARDCODED_AREAS],
+    selectHardcodedArea: (areaName) => {
+        if ($hardcodedArea) {
+            $hardcodedArea.value = areaName;
+            onHardcodedAreaChange();
+        }
+    }
 };

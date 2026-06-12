@@ -2749,3 +2749,69 @@ canvas { max-height: 180px; width: 100%; }
   #map { height: 100vh; }
   body::before { display: none; }
 }
+/* Add these to your existing style.css */
+
+/* Heatmap Toggle Button */
+#heatmapToggleBtn {
+    position: absolute;
+    bottom: 20px;
+    right: 10px;
+    z-index: 10000;
+    background: #1a472a;
+    border: 2px solid #ff9800;
+    border-radius: 8px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    color: #ff9800;
+    font-family: monospace;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    pointer-events: auto;
+}
+
+#heatmapToggleBtn:hover {
+    background: #2a5a3a;
+    transform: scale(1.02);
+}
+
+/* Heatmap Toast Notification */
+.heatmap-toast {
+    position: fixed;
+    bottom: 80px;
+    right: 10px;
+    z-index: 10001;
+    background: #1a472a;
+    border-left: 4px solid #ff9800;
+    padding: 10px 15px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 11px;
+    color: #a5d6a7;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    pointer-events: none;
+    animation: fadeOut 3s ease-in-out forwards;
+}
+
+@keyframes fadeOut {
+    0% { opacity: 1; transform: translateX(0); }
+    70% { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; transform: translateX(20px); visibility: hidden; }
+}
+
+/* Suburb Label - Clean black text, no border */
+.suburb-label-clean {
+    background: transparent !important;
+    border: none !important;
+    pointer-events: none;
+    z-index: 2000;
+}
+
+.suburb-label-clean div {
+    background: transparent !important;
+    border: none !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+    text-shadow: none !important;
+}

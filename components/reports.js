@@ -1,7 +1,6 @@
 // components/reports.js - Reports Component
 // Fetches live data from Python Flask backend and integrates with map
-
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://192.168.0.195:5000/api';
 
 // Store fetched data
 let pipelinesData = [];

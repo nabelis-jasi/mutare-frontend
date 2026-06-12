@@ -4,7 +4,7 @@
 // ============================================
 
 // API Configuration
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://192.168.0.195:5000/api';
 
 // Global data stores (will be populated from API)
 let allManholes = [];

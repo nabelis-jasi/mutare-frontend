@@ -1,48 +1,59 @@
 // components/mapview.js
 // ─────────────────────────────────────────────────────────────────────────────
 // Map component — Leaflet-based.
-//
-// FILTER INTEGRATION:
-//   Listens to the 'filtersChanged' event fired by filters.js.
-//   When filters are active:
-//     • All existing manhole markers are dimmed to opacity 0.15 (grey).
-//     • Matched manholes are re-drawn at full colour with a highlight ring.
-//     • All pipeline segments are dimmed; matched ones are re-styled bright.
-//   When filters are cleared all layers return to normal opacity/colour.
-//
-// COLOUR SCHEME:
-//   Manholes  — Normal: #9b59b6 (purple) | Warning: #ffc107 | Critical: #dc3545
-//   Pipelines — Normal: #32cd32 (lime)   | Warning: #ffc107 | Critical: #dc3545
-//   Highlight ring: #00d4ff (cyan)
+// NORMAL MODE: Red=Critical, Yellow=Warning, Purple=Good manholes + pipelines
+// HEATMAP MODE: Painted color overlay + suburb names only (using heatmap module)
+// Suburb Hover: Orange border + faint cyan blue fill
 // ─────────────────────────────────────────────────────────────────────────────
 
-const API_BASE_URL = 'http://localhost:5000/api';
+import Heatmap from './heatmap.js';
+
+const API_BASE_URL = 'http://192.168.0.195:5000/api';
 
 // ─── Leaflet map instance & layer references ──────────────────────────────────
 let map = null;
 
-// Full-data layers (always present, may be dimmed)
-let allManholeMarkers   = [];   // L.circleMarker[]
-let allPipelineLayer    = null; // L.geoJSON
+// Full-data layers
+let allManholeMarkers   = [];
+let allPipelineLayer    = null;
 let currentSuburbLayer  = null;
 let currentCadastreLayer = null;
 let suburbLabels        = [];
 let cadastreLabels      = [];
 let currentComplaintMarkers = [];
-let heatLayer           = null;
+let heatmapModule       = null;
 
-// Highlight overlay layers (exist only when filters are active)
-let highlightManholeLayer  = null;  // L.layerGroup of highlighted markers
-let highlightPipelineLayer = null;  // L.geoJSON of highlighted pipes
+// Highlight overlay layers
+let highlightManholeLayer  = null;
+let highlightPipelineLayer = null;
 let currentComplaintBuffers = [];
 
-// Suburb stats (filled after all data loads)
+// Suburb stats
 let suburbStats         = {};
 let suburbPipelineStats = {};
 let suburbGeometries    = [];
 
-// Store current manhole data for hotspots
+// Store current manhole data
 let currentManholesData = [];
+
+// Suburb boundary style - THICK BLACK (normal mode only)
+const SUBURB_STYLE = { 
+    color: '#000000',
+    weight: 3,
+    opacity: 0.9,
+    fill: false,
+    fillOpacity: 0
+};
+
+// Suburb HOVER style - ORANGE BORDER + FAINT CYAN BLUE FILL
+const SUBURB_HOVER_STYLE = { 
+    color: '#ff7800',
+    weight: 4,
+    opacity: 1,
+    fill: true,
+    fillColor: '#00d4ff',
+    fillOpacity: 0.25
+};
 
 // Tile definitions
 const TILES = {
@@ -54,12 +65,22 @@ const TILES = {
 let currentTileLayer = null;
 let currentOverlay   = null;
 
-// Suburb polygon styles
-const SUBURB_DEFAULT = { color: '#000', weight: 2.5, opacity: 1, fill: false, fillOpacity: 0 };
-const SUBURB_HOVER   = { color: '#ff7800', weight: 4, opacity: 1, fill: true, fillColor: '#00d4ff', fillOpacity: 0.25 };
+// Manhole colors for NORMAL mode
+const NORMAL_MANHOLE_COLORS = {
+    critical: '#dc3545',
+    warning: '#ffc107',
+    good: '#9b59b6'
+};
+
+// Pipeline colors for NORMAL mode
+const NORMAL_PIPELINE_COLORS = {
+    critical: '#dc3545',
+    warning: '#ffc107',
+    good: '#32cd32'
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STATUS HELPERS
+// NORMAL MODE COLORS
 // ─────────────────────────────────────────────────────────────────────────────
 
 function statusColor(raw) {
@@ -67,7 +88,7 @@ function statusColor(raw) {
     const s = String(raw).toLowerCase();
     if (s === 'critical') return '#dc3545';
     if (s === 'warning')  return '#ffc107';
-    return '#9b59b6';   // purple = normal manhole
+    return '#9b59b6';
 }
 
 function pipeStatusColor(raw) {
@@ -75,11 +96,163 @@ function pipeStatusColor(raw) {
     const s = String(raw).toLowerCase();
     if (s === 'critical') return '#dc3545';
     if (s === 'warning')  return '#ffc107';
-    return '#32cd32';   // lime green = normal pipeline
+    return '#32cd32';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POINT-IN-POLYGON (Ray Casting)
+// STATISTICS DATA EXPORTER
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getCurrentStatistics() {
+    const totalManholes = allManholeMarkers.length;
+    
+    let criticalCount = 0;
+    let warningCount = 0;
+    let goodCount = 0;
+    
+    for (const marker of allManholeMarkers) {
+        const status = marker._props?.status || 'good';
+        const s = String(status).toLowerCase();
+        if (s === 'critical' || s === 'blocked') {
+            criticalCount++;
+        } else if (s === 'warning' || s === 'partial') {
+            warningCount++;
+        } else {
+            goodCount++;
+        }
+    }
+    
+    let pipelinesCount = 0;
+    if (allPipelineLayer) {
+        if (typeof allPipelineLayer.getLayers === 'function') {
+            pipelinesCount = allPipelineLayer.getLayers().length;
+        } else if (allPipelineLayer._layers) {
+            pipelinesCount = Object.keys(allPipelineLayer._layers).length;
+        }
+    }
+    
+    console.log('📊 REAL STATS - Manholes:', totalManholes, 'Critical:', criticalCount, 'Warning:', warningCount, 'Pipelines:', pipelinesCount);
+    
+    return {
+        manholesCount: totalManholes,
+        pipelinesCount: pipelinesCount,
+        criticalCount: criticalCount,
+        warningCount: warningCount,
+        goodCount: goodCount
+    };
+}
+
+function dispatchStatisticsUpdate() {
+    const stats = getCurrentStatistics();
+    document.dispatchEvent(new CustomEvent('statisticsUpdate', { detail: stats }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HEATMAP MODE - Using heatmap module
+// ─────────────────────────────────────────────────────────────────────────────
+
+function enableHeatmapMode() {
+    console.log('🔥 Enabling HEATMAP MODE...');
+    
+    if (currentSuburbLayer && map.hasLayer(currentSuburbLayer)) {
+        map.removeLayer(currentSuburbLayer);
+        console.log('✅ Suburb boundaries hidden');
+    }
+    
+    for (const marker of allManholeMarkers) {
+        if (map.hasLayer(marker)) {
+            map.removeLayer(marker);
+        }
+    }
+    console.log('✅ Manholes hidden');
+    
+    if (allPipelineLayer && map.hasLayer(allPipelineLayer)) {
+        map.removeLayer(allPipelineLayer);
+        console.log('✅ Pipelines hidden');
+    }
+    
+    const success = heatmapModule.show(allManholeMarkers);
+    
+    if (success) {
+        heatmapModule.updateButton(true);
+        heatmapModule.showToast('🔥 HEATMAP ON', 'Painted density overlay');
+    }
+    
+    dispatchStatisticsUpdate();
+    return success;
+}
+
+function disableHeatmapMode() {
+    console.log('🔥 Disabling HEATMAP MODE...');
+    
+    heatmapModule.hide();
+    
+    if (currentSuburbLayer && !map.hasLayer(currentSuburbLayer)) {
+        currentSuburbLayer.addTo(map);
+        console.log('✅ Suburb boundaries restored');
+    }
+    
+    for (const marker of allManholeMarkers) {
+        if (!map.hasLayer(marker)) {
+            const status = marker._props?.status || 'good';
+            const color = NORMAL_MANHOLE_COLORS[status] || NORMAL_MANHOLE_COLORS.good;
+            marker.setStyle({
+                color: color,
+                fillColor: color,
+                radius: 6,
+                weight: 1.5,
+                opacity: 1,
+                fillOpacity: 0.85
+            });
+            marker.addTo(map);
+        }
+    }
+    console.log('✅ Manholes restored');
+    
+    if (allPipelineLayer && !map.hasLayer(allPipelineLayer)) {
+        allPipelineLayer.eachLayer(layer => {
+            const status = layer.feature?.properties?.status || 'good';
+            const color = NORMAL_PIPELINE_COLORS[status] || NORMAL_PIPELINE_COLORS.good;
+            layer.setStyle({ color: color, weight: 2.5, opacity: 0.9 });
+        });
+        allPipelineLayer.addTo(map);
+        console.log('✅ Pipelines restored');
+    }
+    
+    heatmapModule.updateButton(false);
+    heatmapModule.showToast('🎨 NORMAL MODE', 'Red=Critical • Yellow=Warning • Purple=Good');
+    
+    dispatchStatisticsUpdate();
+}
+
+function toggleHeatmapMode() {
+    if (heatmapModule && heatmapModule.isActive()) {
+        disableHeatmapMode();
+    } else {
+        enableHeatmapMode();
+    }
+}
+
+function addHeatmapToggleButton() {
+    const container = document.querySelector('.map-container');
+    if (!container) {
+        setTimeout(addHeatmapToggleButton, 500);
+        return;
+    }
+    
+    heatmapModule.addButton(container, () => {
+        toggleHeatmapMode();
+    });
+}
+
+function initHeatmapModule() {
+    heatmapModule = Heatmap;
+    heatmapModule.init(map);
+    console.log('✅ Heatmap module initialized');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POINT-IN-POLYGON
 // ─────────────────────────────────────────────────────────────────────────────
 
 function isPointInPolygon(lng, lat, geom) {
@@ -205,7 +378,7 @@ async function calculateSuburbStatistics() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POPUP BUILDERS
+// POPUP BUILDERS - CORRECTED (NO "NonNull" TEXT)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildSuburbPopup(name, props) {
@@ -213,24 +386,24 @@ function buildSuburbPopup(name, props) {
     const pl = suburbPipelineStats[name] || { total: 0, critical: 0, warning: 0, good: 0 };
     return `
 <div style="min-width:300px;font-family:monospace;font-size:12px">
-  <b style="font-size:14px;color:#00d4ff">🏘️ ${name}</b>
+  <b style="font-size:14px;color:#00d4ff">🏘️ ${escapeHtml(name)}</b>
   <hr style="border-color:#333;margin:6px 0">
   <div style="color:#9b59b6;font-weight:bold;margin-bottom:4px">🕳️ MANHOLES</div>
   <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px">
-    <tr><td>Total</td><td style="text-align:right;color:#69f0ae;font-weight:bold">${mh.total}</td></tr>
+    <tr><td style="color:#00d4ff">Total</td><td style="text-align:right;color:#69f0ae;font-weight:bold">${mh.total}</td></tr>
     <tr><td style="color:#dc3545">🔴 Critical</td><td style="text-align:right;color:#dc3545;font-weight:bold">${mh.critical}</td></tr>
-    <tr><td style="color:#ffc107">🟡 Warning</td> <td style="text-align:right;color:#ffc107;font-weight:bold">${mh.warning}</td></tr>
-    <tr><td style="color:#9b59b6">🟣 Normal</td>  <td style="text-align:right;color:#9b59b6;font-weight:bold">${mh.good}</td></tr>
+    <tr><td style="color:#ffc107">🟡 Warning</td><td style="text-align:right;color:#ffc107;font-weight:bold">${mh.warning}</td></tr>
+    <tr><td style="color:#9b59b6">🟣 Normal</td><td style="text-align:right;color:#9b59b6;font-weight:bold">${mh.good}</td></tr>
    </table>
   <div style="color:#32cd32;font-weight:bold;margin-bottom:4px">📏 PIPELINES</div>
   <table style="width:100%;border-collapse:collapse;font-size:11px">
-    <tr><td>Total</td><td style="text-align:right;color:#69f0ae;font-weight:bold">${pl.total}</td></tr>
+    <tr><td style="color:#00d4ff">Total</td><td style="text-align:right;color:#69f0ae;font-weight:bold">${pl.total}</td></tr>
     <tr><td style="color:#dc3545">🔴 Critical</td><td style="text-align:right;color:#dc3545;font-weight:bold">${pl.critical}</td></tr>
-    <tr><td style="color:#ffc107">🟡 Warning</td> <td style="text-align:right;color:#ffc107;font-weight:bold">${pl.warning}</td></tr>
-    <tr><td style="color:#32cd32">🟢 Normal</td>  <td style="text-align:right;color:#32cd32;font-weight:bold">${pl.good}</td></tr>
+    <tr><td style="color:#ffc107">🟡 Warning</td><td style="text-align:right;color:#ffc107;font-weight:bold">${pl.warning}</td></tr>
+    <tr><td style="color:#32cd32">🟢 Normal</td><td style="text-align:right;color:#32cd32;font-weight:bold">${pl.good}</td></tr>
    </table>
   <hr style="border-color:#333;margin:6px 0">
-  <div style="font-size:10px;color:#888;text-align:center">Ward: ${props?.ward || 'N/A'} | Zone: ${props?.zone || 'N/A'}</div>
+  <div style="font-size:10px;color:#888;text-align:center">Ward: ${escapeHtml(props?.ward || 'N/A')} | Zone: ${escapeHtml(props?.zone || 'N/A')}</div>
 </div>`;
 }
 
@@ -239,12 +412,12 @@ function buildManholePopup(props, suburbName) {
     const statusLabel = props.status === 'critical' ? 'Critical' : props.status === 'warning' ? 'Warning' : 'Normal';
     return `
 <div style="min-width:200px;font-family:monospace;font-size:12px">
-  <b>🕳️ ${props.manhole_id || 'Manhole'}</b>
+  <b>🕳️ ${escapeHtml(props.manhole_id || 'Manhole')}</b>
   <hr style="border-color:#333;margin:5px 0">
-  <div>📍 <b style="color:#00d4ff">Suburb:</b> <span style="color:#00d4ff">${suburbName || props.suburb || 'Unknown'}</span></div>
+  <div>📍 <b style="color:#00d4ff">Suburb:</b> <span style="color:#00d4ff">${escapeHtml(suburbName || props.suburb || 'Unknown')}</span></div>
   <div>📊 <b>Status:</b> <span style="color:${col};font-weight:bold">${statusLabel}</span></div>
   <div>📏 <b>Depth:</b> ${props.depth != null ? props.depth + ' m' : 'N/A'}</div>
-  <div>🔧 <b>Inspector:</b> ${props.inspector || 'N/A'}</div>
+  <div>🔧 <b>Inspector:</b> ${escapeHtml(props.inspector || 'N/A')}</div>
   <div>📅 <b>Inspected:</b> ${props.inspection_date || 'N/A'}</div>
 </div>`;
 }
@@ -254,28 +427,79 @@ function buildPipelinePopup(props, suburbName) {
     const statusLabel = props.status === 'critical' ? 'Critical' : props.status === 'warning' ? 'Warning' : 'Normal';
     return `
 <div style="min-width:220px;font-family:monospace;font-size:12px">
-  <b>📏 ${props.pipe_id || 'Pipeline'}</b>
+  <b>📏 ${escapeHtml(props.pipe_id || 'Pipeline')}</b>
   <hr style="border-color:#333;margin:5px 0">
-  <div>📍 <b style="color:#00d4ff">Suburb:</b> <span style="color:#00d4ff">${suburbName || 'Unknown'}</span></div>
+  <div>📍 <b style="color:#00d4ff">Suburb:</b> <span style="color:#00d4ff">${escapeHtml(suburbName || 'Unknown')}</span></div>
   <div>📊 <b>Status:</b> <span style="color:${col};font-weight:bold">${statusLabel}</span></div>
-  <div>🔧 <b>Material:</b> ${props.material || 'N/A'}</div>
+  <div>🔧 <b>Material:</b> ${escapeHtml(props.material || 'N/A')}</div>
   <div>📏 <b>Length:</b> ${props.length != null ? props.length.toFixed(1) + ' m' : 'N/A'}</div>
   <div>📐 <b>Diameter:</b> ${props.diameter || 'N/A'} mm</div>
 </div>`;
 }
 
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// LOAD FULL LAYERS (initial load / reset)
+// LOAD SUBURBS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function loadSuburbsFromGeoJSON(geojson) {
+    if (!map) return;
+
+    suburbLabels.forEach(l => map.hasLayer(l) && map.removeLayer(l));
+    suburbLabels = [];
+    if (currentSuburbLayer) { 
+        map.hasLayer(currentSuburbLayer) && map.removeLayer(currentSuburbLayer); 
+        currentSuburbLayer = null; 
+    }
+
+    currentSuburbLayer = L.geoJSON(geojson, {
+        style: () => SUBURB_STYLE,
+        onEachFeature: (f, layer) => {
+            const name = (f.properties?.name || f.properties?.suburb_nam || 'Unknown').toUpperCase();
+            layer.bindPopup(buildSuburbPopup(name, f.properties));
+
+            layer.on('mouseover', () => { layer.setStyle(SUBURB_HOVER_STYLE); });
+            layer.on('mouseout', () => { layer.setStyle(SUBURB_STYLE); });
+
+            try {
+                const centre = layer.getBounds().getCenter();
+                const label = L.marker(centre, {
+                    icon: L.divIcon({
+                        html: `<div style="font-family:monospace;font-size:10px;font-weight:800;color:#000000;background:transparent;padding:1px 3px;white-space:nowrap;border:none;">${escapeHtml(name)}</div>`,
+                        iconSize: [null, null],
+                        className: 'suburb-label-clean'
+                    }),
+                    interactive: false,
+                    zIndexOffset: 2000
+                });
+                label.suburbName = name;
+                label.addTo(map);
+                suburbLabels.push(label);
+            } catch (e) {}
+        }
+    }).addTo(map);
+
+    console.log(`✅ Suburbs: ${geojson?.features?.length || 0}, labels: ${suburbLabels.length}`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOAD MANHOLES
 // ─────────────────────────────────────────────────────────────────────────────
 
 function loadManholesFromGeoJSON(geojson) {
     if (!map) return;
 
-    // Remove existing markers
     allManholeMarkers.forEach(m => map.hasLayer(m) && map.removeLayer(m));
     allManholeMarkers = [];
-    
-    // Store current manhole data for hotspots
     currentManholesData = [];
 
     for (const f of geojson?.features || []) {
@@ -287,42 +511,47 @@ function loadManholesFromGeoJSON(geojson) {
         const suburb = findSuburbForPoint(lng, lat);
 
         const marker = L.circleMarker([lat, lng], {
-            radius: 6, color, fillColor: color, fillOpacity: 0.85, weight: 1.5, opacity: 1,
+            radius: 6,
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.85,
+            weight: 1.5,
+            opacity: 1,
         }).bindPopup(buildManholePopup(props, suburb));
 
         marker._filterStatus = props.status || 'good';
-        marker._lng = lng; marker._lat = lat;
+        marker._lng = lng;
+        marker._lat = lat;
         marker._props = props;
         marker._id = props.manhole_id;
 
         marker.addTo(map);
         allManholeMarkers.push(marker);
         
-        // Store for hotspots
         currentManholesData.push({
             id: props.manhole_id,
             manhole_id: props.manhole_id,
-            name: props.manhole_id,
             lat: lat,
             lng: lng,
             suburb: suburb || props.suburb || 'Unknown',
-            suburb_nam: suburb || props.suburb || 'Unknown',
             status: props.status || 'good',
-            bloc_stat: props.status || 'good',
-            depth: props.depth,
-            inspector: props.inspector,
-            inspection_date: props.inspection_date
+            bloc_stat: props.status || 'good'
         });
     }
     
-    // Update hotspots component with the data
     if (window.hotspotsComponent && currentManholesData.length) {
         window.hotspotsComponent.update(currentManholesData);
-        console.log(`🔥 Hotspots component updated with ${currentManholesData.length} manholes`);
     }
     
-    console.log(`✅ Manhole markers: ${allManholeMarkers.length}`);
+    refreshClusterDataForStats();
+    dispatchStatisticsUpdate();
+    
+    console.log(`✅ Manholes loaded: ${allManholeMarkers.length}`);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOAD PIPELINES
+// ─────────────────────────────────────────────────────────────────────────────
 
 function loadPipelinesFromGeoJSON(geojson) {
     if (!map) return;
@@ -348,43 +577,8 @@ function loadPipelinesFromGeoJSON(geojson) {
         }
     }).addTo(map);
 
-    console.log(`✅ Pipeline features: ${geojson?.features?.length || 0}`);
-}
-
-function loadSuburbsFromGeoJSON(geojson) {
-    if (!map) return;
-
-    // Remove old
-    suburbLabels.forEach(l => map.hasLayer(l) && map.removeLayer(l));
-    suburbLabels = [];
-    if (currentSuburbLayer) { map.hasLayer(currentSuburbLayer) && map.removeLayer(currentSuburbLayer); currentSuburbLayer = null; }
-
-    currentSuburbLayer = L.geoJSON(geojson, {
-        style: () => SUBURB_DEFAULT,
-        onEachFeature: (f, layer) => {
-            const name = (f.properties?.name || f.properties?.suburb_nam || 'Unknown').toUpperCase();
-            layer.bindPopup(buildSuburbPopup(name, f.properties));
-
-            layer.on('mouseover', () => { layer.setStyle(SUBURB_HOVER); });
-            layer.on('mouseout',  () => { layer.setStyle(SUBURB_DEFAULT); });
-
-            try {
-                const centre = layer.getBounds().getCenter();
-                const label = L.marker(centre, {
-                    icon: L.divIcon({
-                        html: `<div style="font-family:monospace;font-size:9px;font-weight:bold;color:#000;background:rgba(255,255,255,.8);padding:1px 5px;border-radius:3px;border:1px solid #555;white-space:nowrap">${name}</div>`,
-                        iconSize: [null, null],
-                    }),
-                    interactive: false,
-                });
-                label.suburbName = name;
-                label.addTo(map);
-                suburbLabels.push(label);
-            } catch (_) { /* bounds error — skip label */ }
-        }
-    }).addTo(map);
-
-    console.log(`✅ Suburbs: ${geojson?.features?.length || 0}`);
+    dispatchStatisticsUpdate();
+    console.log(`✅ Pipelines loaded: ${geojson?.features?.length || 0}`);
 }
 
 function loadComplaintsFromGeoJSON(geojson) {
@@ -398,31 +592,9 @@ function loadComplaintsFromGeoJSON(geojson) {
         const props = f.properties || {};
         const color = props.status === 'resolved' ? '#28a745' : '#dc3545';
 
-        L.circleMarker([lat, lng], { radius: 8, color, fillColor: color, fillOpacity: 0.85, weight: 2 })
-            .bindPopup(`<b>⚠️ Complaint</b><br>📍 ${props.address || 'Unknown'}<br>Status: ${props.status || 'pending'}`)
-            .addTo(map).let?.(m => currentComplaintMarkers.push(m));
-
-        // .let is not standard — push manually:
         const m = L.circleMarker([lat, lng], { radius: 8, color, fillColor: color, fillOpacity: 0.85, weight: 2 })
-            .bindPopup(`<b>⚠️ Complaint</b><br>📍 ${props.address || 'Unknown'}<br>Status: ${props.status || 'pending'}`);
-        m.addTo(map);
-        currentComplaintMarkers.push(m);
-    }
-}
-
-// deduplicate complaint markers (we add twice above - fix:)
-// Actually let's redo complaints loading cleanly:
-function _loadComplaints(geojson) {
-    if (!map) return;
-    currentComplaintMarkers.forEach(m => map.hasLayer(m) && map.removeLayer(m));
-    currentComplaintMarkers = [];
-    for (const f of geojson?.features || []) {
-        const [lng, lat] = f.geometry?.coordinates || [];
-        if (!lng || !lat) continue;
-        const props = f.properties || {};
-        const color = props.status === 'resolved' ? '#28a745' : '#dc3545';
-        const m = L.circleMarker([lat, lng], { radius: 8, color, fillColor: color, fillOpacity: 0.85, weight: 2 })
-            .bindPopup(`<b>⚠️ Complaint</b><br>📍 ${props.address || 'Unknown'}<br>Status: ${props.status || 'pending'}`);
+            .bindPopup(`<b>⚠️ Complaint</b><br>📍 ${escapeHtml(props.address || 'Unknown')}<br>Status: ${props.status || 'pending'}`);
+        m._complaintStatus = props.status || 'pending';
         m.addTo(map);
         currentComplaintMarkers.push(m);
     }
@@ -442,7 +614,7 @@ function loadCadastreFromGeoJSON(geojson) {
                 try {
                     const c = layer.getBounds().getCenter();
                     const lbl = L.marker(c, {
-                        icon: L.divIcon({ html: `<div style="font-size:7px;background:rgba(255,255,255,.7);padding:1px 3px;border-radius:2px">${sn}</div>`, iconSize: [null, null] }),
+                        icon: L.divIcon({ html: `<div style="font-size:7px;background:rgba(255,255,255,.7);padding:1px 3px;border-radius:2px">${escapeHtml(sn)}</div>`, iconSize: [null, null] }),
                         interactive: false,
                     }).addTo(map);
                     cadastreLabels.push(lbl);
@@ -452,7 +624,6 @@ function loadCadastreFromGeoJSON(geojson) {
     }).addTo(map);
 }
 
-// Update suburb popups with calculated stats
 function updateSuburbPopups() {
     if (!currentSuburbLayer) return;
     currentSuburbLayer.eachLayer(layer => {
@@ -463,72 +634,73 @@ function updateSuburbPopups() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FILTER HIGHLIGHT  ← THE KEY NEW FEATURE
+// CLUSTER DATA REFRESH
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Called when the 'filtersChanged' event fires.
- *
- * If filtersAreActive:
- *   1. Build a Set of matched manhole IDs and pipe IDs.
- *   2. Dim ALL existing markers / pipelines.
- *   3. Re-draw matched ones at full brightness with a cyan highlight ring.
- *
- * If no filters are active: restore everything to normal opacity/colour.
- */
+async function refreshClusterDataForStats() {
+    if (window.statisticsComponent) {
+        await window.statisticsComponent.update();
+    }
+    dispatchStatisticsUpdate();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FILTER HIGHLIGHT
+// ─────────────────────────────────────────────────────────────────────────────
+
 function applyFilterHighlight(detail) {
     const { manholeGeoJSON, pipelineGeoJSON, manholes, pipelines, filtersAreActive } = detail;
 
-    // ── Clean up previous highlight layers ───────────────────────────────────
     if (highlightManholeLayer)  { map.hasLayer(highlightManholeLayer)  && map.removeLayer(highlightManholeLayer);  highlightManholeLayer  = null; }
     if (highlightPipelineLayer) { map.hasLayer(highlightPipelineLayer) && map.removeLayer(highlightPipelineLayer); highlightPipelineLayer = null; }
 
     if (!filtersAreActive) {
-        // Restore all base layers to full opacity
-        allManholeMarkers.forEach(m => {
-            m.setStyle({ opacity: 1, fillOpacity: 0.85, radius: 6 });
-        });
-        if (allPipelineLayer) {
-            allPipelineLayer.eachLayer(l => {
-                const col = pipeStatusColor(l.feature?.properties?.status);
-                l.setStyle({ color: col, opacity: 0.9, weight: 2.5 });
-            });
+        if (heatmapModule && heatmapModule.isActive()) {
+            enableHeatmapMode();
+        } else {
+            for (const marker of allManholeMarkers) {
+                const status = marker._props?.status || 'good';
+                const col = NORMAL_MANHOLE_COLORS[status] || NORMAL_MANHOLE_COLORS.good;
+                marker.setStyle({ color: col, fillColor: col, radius: 6, weight: 1.5, opacity: 1, fillOpacity: 0.85 });
+            }
+            if (allPipelineLayer) {
+                allPipelineLayer.eachLayer(l => {
+                    const status = l.feature?.properties?.status || 'good';
+                    const col = NORMAL_PIPELINE_COLORS[status] || NORMAL_PIPELINE_COLORS.good;
+                    l.setStyle({ color: col, weight: 2.5, opacity: 0.9 });
+                });
+            }
         }
+        dispatchStatisticsUpdate();
         return;
     }
 
-    // ── Build ID sets ─────────────────────────────────────────────────────────
-    const matchedManholeIds  = new Set((manholeGeoJSON?.features || manholes || []).map(f => String((f.properties || f).manhole_id ?? f.manhole_id)));
-    const matchedPipeIds     = new Set((pipelineGeoJSON?.features || pipelines || []).map(f => String((f.properties || f).pipe_id ?? f.pipe_id)));
+    const matchedManholeIds = new Set((manholeGeoJSON?.features || manholes || []).map(f => String((f.properties || f).manhole_id ?? f.manhole_id)));
+    const matchedPipeIds = new Set((pipelineGeoJSON?.features || pipelines || []).map(f => String((f.properties || f).pipe_id ?? f.pipe_id)));
 
-    // ── Dim all base manhole markers ─────────────────────────────────────────
-    allManholeMarkers.forEach(m => {
-        const id = String(m._props?.manhole_id || '');
+    for (const marker of allManholeMarkers) {
+        const id = String(marker._props?.manhole_id || '');
         if (matchedManholeIds.has(id)) {
-            // Matched: keep full colour, enlarge slightly
-            const col = statusColor(m._props?.status);
-            m.setStyle({ color: '#00d4ff', fillColor: col, opacity: 1, fillOpacity: 0.95, weight: 2.5, radius: 8 });
+            const col = statusColor(marker._props?.status);
+            marker.setStyle({ color: '#00d4ff', fillColor: col, radius: 8, weight: 2.5, opacity: 1, fillOpacity: 0.95 });
         } else {
-            // Unmatched: dim to near-invisible grey
-            m.setStyle({ color: '#555', fillColor: '#444', opacity: 0.15, fillOpacity: 0.12, radius: 5, weight: 1 });
+            marker.setStyle({ color: '#555', fillColor: '#444', radius: 5, weight: 1, opacity: 0.15, fillOpacity: 0.12 });
         }
-    });
+    }
 
-    // ── Dim / highlight pipeline segments ────────────────────────────────────
     if (allPipelineLayer) {
         allPipelineLayer.eachLayer(l => {
             const id = String(l._featureId || l.feature?.properties?.pipe_id || '');
             if (matchedPipeIds.has(id)) {
                 const col = pipeStatusColor(l.feature?.properties?.status);
-                l.setStyle({ color: col, opacity: 1, weight: 4 });
+                l.setStyle({ color: col, weight: 4, opacity: 1 });
             } else {
-                l.setStyle({ color: '#333', opacity: 0.12, weight: 1.5 });
+                l.setStyle({ color: '#333', weight: 1.5, opacity: 0.12 });
             }
         });
     }
-
-    // ── Counts in console ────────────────────────────────────────────────────
-    console.log(`🗺️ Highlight — ${matchedManholeIds.size} manholes, ${matchedPipeIds.size} pipelines`);
+    
+    dispatchStatisticsUpdate();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -553,16 +725,17 @@ async function refreshAllLayers() {
         loadSuburbsFromGeoJSON(sbGeo);
         loadManholesFromGeoJSON(mhGeo);
         loadPipelinesFromGeoJSON(plGeo);
-        _loadComplaints(cpGeo);
+        loadComplaintsFromGeoJSON(cpGeo);
         loadCadastreFromGeoJSON(cdGeo);
 
         await calculateSuburbStatistics();
+        await refreshClusterDataForStats();
 
         document.dispatchEvent(new CustomEvent('mapDataRefreshed', {
             detail: {
-                manholes:  allManholeMarkers.length,
+                manholes: allManholeMarkers.length,
                 pipelines: plGeo.features?.length || 0,
-                suburbs:   sbGeo.features?.length || 0,
+                suburbs: sbGeo.features?.length || 0,
             }
         }));
 
@@ -636,14 +809,18 @@ function addDropdownTileSelector() {
     document.getElementById('tileDropdownBtn')?.addEventListener('click', e => {
         e.stopPropagation();
         const m = document.getElementById('tileMenu');
-        m.style.display = m.style.display === 'block' ? 'none' : 'block';
+        if (m) m.style.display = m.style.display === 'block' ? 'none' : 'block';
     });
-    document.addEventListener('click', () => { document.getElementById('tileMenu').style.display = 'none'; });
+    document.addEventListener('click', () => { 
+        const m = document.getElementById('tileMenu');
+        if (m) m.style.display = 'none'; 
+    });
     wrap.querySelectorAll('.tile-opt').forEach(el => {
         el.addEventListener('click', e => {
             e.stopPropagation();
             switchBaseMap(el.dataset.tile);
-            document.getElementById('tileMenu').style.display = 'none';
+            const m = document.getElementById('tileMenu');
+            if (m) m.style.display = 'none';
         });
         el.addEventListener('mouseover', () => { el.style.background = '#1a3a1a'; });
         el.addEventListener('mouseout',  () => { el.style.background = 'transparent'; });
@@ -651,14 +828,13 @@ function addDropdownTileSelector() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ZOOM TO LOCATION FOR HOTSPOTS
+// ZOOM TO LOCATION
 // ─────────────────────────────────────────────────────────────────────────────
 
 function zoomToLocation(lat, lng, zoom = 18) {
-    if (map && lat && lng) {
+    if (map && lat && lng && !isNaN(lat) && !isNaN(lng)) {
         map.setView([lat, lng], zoom);
         
-        // Add temporary highlight marker
         if (window.tempHighlightMarker) {
             map.removeLayer(window.tempHighlightMarker);
         }
@@ -671,7 +847,6 @@ function zoomToLocation(lat, lng, zoom = 18) {
             className: 'hotspot-highlight'
         }).addTo(map);
         
-        // Remove highlight after 3 seconds
         setTimeout(() => {
             if (window.tempHighlightMarker) {
                 map.removeLayer(window.tempHighlightMarker);
@@ -681,7 +856,6 @@ function zoomToLocation(lat, lng, zoom = 18) {
     }
 }
 
-// Add hotspot event listeners
 function addHotspotEventListeners() {
     document.addEventListener('zoomToLocation', (e) => {
         const { lat, lng, zoom } = e.detail;
@@ -689,8 +863,8 @@ function addHotspotEventListeners() {
     });
     
     document.addEventListener('highlightAsset', (e) => {
-        const { assetId, lat, lng, isCritical } = e.detail;
-        if (map && lat && lng) {
+        const { lat, lng, isCritical } = e.detail;
+        if (map && lat && lng && !isNaN(lat) && !isNaN(lng)) {
             map.setView([lat, lng], 18);
             
             if (window.highlightMarker) {
@@ -707,7 +881,6 @@ function addHotspotEventListeners() {
                 className: 'asset-highlight-pulse'
             }).addTo(map);
             
-            // Add pulsing animation via CSS
             if (!document.querySelector('#hotspot-pulse-style')) {
                 const style = document.createElement('style');
                 style.id = 'hotspot-pulse-style';
@@ -753,21 +926,21 @@ function initMap(centerLat = -18.9735, centerLng = 32.6705, zoom = 13) {
 
     L.control.scale({ metric: true, imperial: false, position: 'bottomleft' }).addTo(map);
 
-    // Coordinate display
     map.on('mousemove', e => {
-        const el = document.getElementById('coordStatus');
-        if (el) el.innerHTML = `📍 ${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)} | Zoom: ${map.getZoom()}`;
+        const elCoord = document.getElementById('coordStatus');
+        if (elCoord) elCoord.innerHTML = `📍 ${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)} | Zoom: ${map.getZoom()}`;
     });
 
-    // ── Listen for filter events ──────────────────────────────────────────────
     document.addEventListener('filtersChanged', e => {
         applyFilterHighlight(e.detail);
     });
     
-    // ── Add hotspot event listeners ──────────────────────────────────────────
     addHotspotEventListeners();
+    
+    initHeatmapModule();
 
     setTimeout(() => addDropdownTileSelector(), 200);
+    setTimeout(() => addHeatmapToggleButton(), 250);
     setTimeout(() => refreshAllLayers(), 800);
 
     document.dispatchEvent(new CustomEvent('mapReady'));
@@ -797,21 +970,10 @@ function showComplaintsWithBuffers(complaints) {
         const color = '#ff9800';
         const r     = c.buffer_radius || 80;
         const marker = L.circleMarker([c.latitude, c.longitude], { radius: 10, color: '#dc3545', fillColor: '#dc3545', fillOpacity: 0.9, weight: 2 })
-            .bindPopup(`<b>⚠️ Complaint</b><br>${c.address}`).addTo(map);
+            .bindPopup(`<b>⚠️ Complaint</b><br>${escapeHtml(c.address)}`).addTo(map);
         const buffer = L.circle([c.latitude, c.longitude], { radius: r, color, fillColor: color, fillOpacity: 0.15, weight: 2 }).addTo(map);
         currentComplaintBuffers.push({ marker, buffer });
     }
-}
-
-function showHeatmapFromCurrentMarkers() {
-    if (!map || !allManholeMarkers.length) return;
-    if (heatLayer) map.removeLayer(heatLayer);
-    heatLayer = L.heatLayer(allManholeMarkers.map(m => [m.getLatLng().lat, m.getLatLng().lng, 1]), { radius: 25, blur: 15 }).addTo(map);
-}
-
-function clearHeatmap() {
-    if (heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
-    heatLayer = null;
 }
 
 function clearPipelines() {
@@ -836,7 +998,6 @@ function clearCadastre() {
 function getMap() { return map; }
 function getCurrentManholesData() { return currentManholesData; }
 
-// Resolve complaint helper (called from popup)
 window.markComplaintResolved = async id => {
     const res = await fetch(`${API_BASE_URL}/complaints/${id}/resolve`, { method: 'PUT' });
     if (res.ok) { alert('Resolved!'); refreshAllLayers(); document.dispatchEvent(new CustomEvent('dataRefreshed')); }
@@ -851,8 +1012,13 @@ export default {
     init:                        initMap,
     getMap,
     getCurrentManholesData,
+    getCurrentStatistics,
+    allManholeMarkers,
+    allPipelineLayer,
+    currentSuburbLayer,
     switchBaseMap,
     refreshAllLayers,
+    refreshClusterDataForStats,
     loadManholesFromGeoJSON,
     loadPipelinesFromGeoJSON,
     loadSuburbsFromGeoJSON,
@@ -862,8 +1028,9 @@ export default {
     clearComplaints,
     clearCadastre,
     showComplaintsWithBuffers,
-    showHeatmapFromCurrentMarkers,
-    clearHeatmap,
+    enableHeatmapMode,
+    disableHeatmapMode,
+    toggleHeatmapMode,
     fitToBounds,
     applyFilterHighlight,
     zoomToLocation,

@@ -13,7 +13,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <!-- Leaflet Heatmap Plugin -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.0.1/leaflet-heat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
     
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -25,50 +25,50 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
     
+    <!-- Main Styles -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
 <div class="dashboard">
-    <!-- LEFT PANEL - Layer List, Filters, and Report Processor -->
+    <!-- LEFT PANEL -->
     <div class="left-panel">
-        <div id="header-container"></div>
-        <!-- Layer List (checkboxes for manholes, pipelines, etc.) -->
         <div id="layermanager-container"></div>
-        <!-- Filters (accordion style) -->
         <div id="filters-container">
-            <!-- FILTER BUTTON - THIS IS THE ONLY ADDITION -->
             <div class="filter-section">
                 <button id="mainFilterBtn" class="filter-main-btn">🔍 FILTERS</button>
                 <div class="active-filters-summary" id="activeFiltersSummary"></div>
             </div>
         </div>
-        <!-- Report Processor (below filter) -->
         <div id="reportprocessor-container"></div>
     </div>
     
     <!-- MAIN CONTENT -->
     <div class="main-content">
-        <!-- Toolbar with Menu Icon as first button -->
         <div id="toolbar-container"></div>
         
-        <!-- Map Container -->
-        <div id="map-container" class="map-container" style="flex: 1; position: relative; background: #0a1f0a;">
-            <div id="map" style="height: 100%; width: 100%;"></div>
+        <div id="map-container" class="map-container">
+            <div id="map"></div>
         </div>
         
-        <!-- Status Bar -->
         <div id="status-container"></div>
     </div>
     
-    <!-- RIGHT PANEL - Statistics, Hotspots, Identification, Reports -->
+    <!-- RIGHT PANEL - Heatmap moved to between hotspots and reports -->
     <div class="right-panel">
         <div id="statistics-container"></div>
         <div id="hotspots-container"></div>
+        
+        <!-- HEATMAP - MOVED HERE (between hotspots and reports) -->
+        <div id="heatmap-container"></div>
+        
         <div id="identification-container"></div>
         <div id="reports-container"></div>
     </div>
 </div>
 
+<!-- Main Application Script -->
 <script type="module" src="main.js"></script>
+
 </body>
 </html>

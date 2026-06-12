@@ -5,7 +5,7 @@
 import MapView from './mapview.js';
 
 // API base URL (Flask backend on port 5000)
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://192.168.0.195:5000/api';
 
 // Performance settings
 const MAX_FEATURES_PER_LAYER = 3000;  // Increased for better coverage
